@@ -8,10 +8,12 @@
 
 - 🚀 **自动检测**: 支持 pnpm 和 lerna monorepo 架构
 - 📦 **多包管理器**: 兼容 pnpm-workspace.yaml 和 lerna.json
-- ⚙️ **可配置**: 通过 `.copy-env.json` 自定义配置
+- ⚙️ **灵活配置**: 支持 JSON、JavaScript (ESM/CJS) 和函数式配置
+- 🎯 **动态运行时配置**: 使用 JavaScript 实现基于环境的配置逻辑
 - 🔄 **智能合并**: 保留现有环境变量值
-- 🎯 **零配置**: 开箱即用，具有合理的默认值
+- 🌐 **零配置**: 开箱即用，具有合理的默认值
 - 🛡️ **类型安全**: 使用 TypeScript 编写，提供完整类型定义
+- ⚡ **异步支持**: 函数式配置支持异步操作
 
 ## 安装
 
@@ -88,6 +90,19 @@ copy-env [options]
 
 ## 配置
 
+copy-env 支持多种配置格式，提供最大的灵活性：
+
+### 配置文件格式
+
+copy-env 自动检测并按以下优先级顺序加载配置文件：
+
+1. **`.copy-env.js`** - ESM JavaScript（推荐用于动态配置）
+2. **`.copy-env.mjs`** - ESM JavaScript
+3. **`.copy-env.cjs`** - CommonJS JavaScript
+4. **`.copy-env.json`** - JSON/JSON5
+
+#### JSON 配置
+
 在项目根目录创建 `.copy-env.json` 文件：
 
 ```json
@@ -98,6 +113,59 @@ copy-env [options]
   "packages": ["packages/*", "apps/*"]
 }
 ```
+
+#### JavaScript 配置
+
+JavaScript 配置文件提供更多灵活性和运行时逻辑：
+
+**ESM 格式 (`.copy-env.js` 或 `.copy-env.mjs`):**
+
+```javascript
+// .copy-env.js
+export default {
+  workspaceRoot: process.cwd(),
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  type: 'auto',
+  // 基于环境变量的动态配置
+  packages: process.env.CUSTOM_PACKAGES?.split(','),
+};
+```
+
+**函数式配置（支持异步）:**
+
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction ? '.env.production.example' : '.env.example',
+    envName: isProduction ? '.env.production' : '.env.local',
+    type: 'auto',
+  };
+}
+```
+
+**CommonJS 格式 (`.copy-env.cjs`):**
+
+```javascript
+// .copy-env.cjs
+module.exports = {
+  workspaceRoot: process.cwd(),
+  type: 'pnpm',
+  packages: ['packages/web', 'packages/api'],
+};
+```
+
+**JavaScript 配置的优势:**
+- 🎯 **动态配置**: 根据环境变量或运行时条件调整设置
+- 🔧 **代码重用**: 导入工具函数并在配置间共享逻辑
+- 📝 **更好的注释**: 使用 JavaScript 注释提供更丰富的文档
+- ⚡ **异步支持**: 从远程获取配置或读取数据库
+- 🛠️ **类型安全**: 通过 JSDoc 或 TypeScript 获得 IntelliSense
+
+查看 [examples/js-config-examples](../examples/js-config-examples) 获取完整的工作示例。
 
 ### 配置选项
 
@@ -195,6 +263,35 @@ packages:
 - **相对路径解析**: 每个包相对于其自己的目录解析 `../shared-config/env.template`
 - **共享模板**: 所有包使用相同的环境模板
 - **灵活配置**: 不同的包可以使用不同的模板
+
+### 5. JavaScript 配置
+[examples/js-config-examples](../examples/js-config-examples)
+
+使用 JavaScript 文件进行高级配置，实现动态运行时配置。
+
+**特性:**
+- ✅ ESM 格式 (`.copy-env.js`, `.copy-env.mjs`)
+- ✅ CommonJS 格式 (`.copy-env.cjs`)
+- ✅ 函数式异步配置
+- ✅ 基于环境的动态配置
+- ✅ 运行时逻辑和计算
+
+**示例：基于环境的动态配置**
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction
+      ? '.env.production.example'
+      : '.env.example',
+    envName: isProduction
+      ? '.env.production'
+      : '.env.local',
+  };
+}
+```
 
 ## 环境变量合并
 
@@ -298,14 +395,14 @@ copy-env 遵循智能检测和处理工作流：
 **参数:**
 
 - `workspaceRoot`（可选）：工作区根目录路径。默认为 `process.cwd()`
-- `configPath`（可选）：配置文件路径。默认为 `.copy-env.json`
+- `configPath`（可选）：配置文件路径。默认为自动检测
 
 **示例:**
 
 ```typescript
 import { copyEnvs } from 'copy-env';
 
-// 使用默认设置（当前目录、.copy-env.json）
+// 使用默认设置（当前目录、自动检测配置）
 await copyEnvs();
 
 // 指定工作区根目录
@@ -313,7 +410,40 @@ await copyEnvs('/path/to/workspace');
 
 // 同时指定工作区根目录和自定义配置
 await copyEnvs('/path/to/workspace', 'custom-config.json');
+
+// 使用 JavaScript 配置
+await copyEnvs('/path/to/workspace', '.copy-env.js');
 ```
+
+### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
+
+读取并解析配置文件（支持 JSON 和 JavaScript 格式）。
+
+**参数:**
+
+- `workspaceRoot`（可选）：工作区根目录路径。默认为 `process.cwd()`
+- `configPath`（可选）：配置文件路径。如果未指定，按优先级自动检测配置文件
+
+**返回:** `Promise<CopyEnvConfig>` - 解析后的配置对象
+
+**示例:**
+
+```typescript
+import { readConfig } from 'copy-env';
+
+// 自动检测配置文件（优先级: .js > .mjs > .cjs > .json）
+const config = await readConfig();
+
+// 指定配置文件
+const config = await readConfig(process.cwd(), '.copy-env.js');
+
+// 在自定义脚本中使用
+const config = await readConfig();
+console.log('工作区根目录:', config.workspaceRoot);
+console.log('包:', config.packages);
+```
+
+**注意:** JavaScript 配置文件需要异步加载。如果您需要同步读取（仅限 JSON），可以从包中导入 `readConfigSync`。
 
 ## 许可证
 

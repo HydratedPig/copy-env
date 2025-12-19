@@ -8,10 +8,12 @@
 
 - 🚀 **自動檢測**: 支援 pnpm 和 lerna monorepo 架構
 - 📦 **多套件管理器**: 相容 pnpm-workspace.yaml 和 lerna.json
-- ⚙️ **可配置**: 透過 `.copy-env.json` 自訂配置
+- ⚙️ **靈活配置**: 支援 JSON、JavaScript (ESM/CJS) 和函數式配置
+- 🎯 **動態執行期配置**: 使用 JavaScript 實現基於環境的配置邏輯
 - 🔄 **智慧合併**: 保留現有環境變數值
-- 🎯 **零配置**: 開箱即用，具有合理的預設值
+- 🌐 **零配置**: 開箱即用，具有合理的預設值
 - 🛡️ **型別安全**: 使用 TypeScript 撰寫，提供完整型別定義
+- ⚡ **非同步支援**: 函數式配置支援非同步操作
 
 ## 安裝
 
@@ -88,6 +90,19 @@ copy-env [options]
 
 ## 配置
 
+copy-env 支援多種配置格式，提供最大的靈活性：
+
+### 配置檔案格式
+
+copy-env 自動檢測並按以下優先順序載入配置檔案：
+
+1. **`.copy-env.js`** - ESM JavaScript（推薦用於動態配置）
+2. **`.copy-env.mjs`** - ESM JavaScript
+3. **`.copy-env.cjs`** - CommonJS JavaScript
+4. **`.copy-env.json`** - JSON/JSON5
+
+#### JSON 配置
+
 在專案根目錄建立 `.copy-env.json` 檔案：
 
 ```json
@@ -98,6 +113,59 @@ copy-env [options]
   "packages": ["packages/*", "apps/*"]
 }
 ```
+
+#### JavaScript 配置
+
+JavaScript 配置檔案提供更多靈活性和執行期邏輯：
+
+**ESM 格式 (`.copy-env.js` 或 `.copy-env.mjs`):**
+
+```javascript
+// .copy-env.js
+export default {
+  workspaceRoot: process.cwd(),
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  type: 'auto',
+  // 基於環境變數的動態配置
+  packages: process.env.CUSTOM_PACKAGES?.split(','),
+};
+```
+
+**函數式配置（支援非同步）:**
+
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction ? '.env.production.example' : '.env.example',
+    envName: isProduction ? '.env.production' : '.env.local',
+    type: 'auto',
+  };
+}
+```
+
+**CommonJS 格式 (`.copy-env.cjs`):**
+
+```javascript
+// .copy-env.cjs
+module.exports = {
+  workspaceRoot: process.cwd(),
+  type: 'pnpm',
+  packages: ['packages/web', 'packages/api'],
+};
+```
+
+**JavaScript 配置的優勢:**
+- 🎯 **動態配置**: 根據環境變數或執行期條件調整設定
+- 🔧 **程式碼重用**: 匯入工具函數並在配置間共享邏輯
+- 📝 **更好的註解**: 使用 JavaScript 註解提供更豐富的文件
+- ⚡ **非同步支援**: 從遠端獲取配置或讀取資料庫
+- 🛠️ **型別安全**: 透過 JSDoc 或 TypeScript 獲得 IntelliSense
+
+查看 [examples/js-config-examples](../examples/js-config-examples) 獲取完整的工作範例。
 
 ### 配置選項
 
@@ -195,6 +263,35 @@ packages:
 - **相對路徑解析**: 每個套件相對於其自己的目錄解析 `../shared-config/env.template`
 - **共用範本**: 所有套件使用相同的環境範本
 - **靈活配置**: 不同的套件可以使用不同的範本
+
+### 5. JavaScript 配置
+[examples/js-config-examples](../examples/js-config-examples)
+
+使用 JavaScript 檔案進行進階配置，實現動態執行期配置。
+
+**特性:**
+- ✅ ESM 格式 (`.copy-env.js`, `.copy-env.mjs`)
+- ✅ CommonJS 格式 (`.copy-env.cjs`)
+- ✅ 函數式非同步配置
+- ✅ 基於環境的動態配置
+- ✅ 執行期邏輯和計算
+
+**範例：基於環境的動態配置**
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction
+      ? '.env.production.example'
+      : '.env.example',
+    envName: isProduction
+      ? '.env.production'
+      : '.env.local',
+  };
+}
+```
 
 ## 環境變數合併
 
@@ -298,14 +395,14 @@ copy-env 遵循智慧檢測和處理工作流程：
 **參數:**
 
 - `workspaceRoot`（可選）：工作區根目錄路徑。預設為 `process.cwd()`
-- `configPath`（可選）：配置檔案路徑。預設為 `.copy-env.json`
+- `configPath`（可選）：配置檔案路徑。預設為自動檢測
 
 **範例:**
 
 ```typescript
 import { copyEnvs } from 'copy-env';
 
-// 使用預設設定（目前目錄、.copy-env.json）
+// 使用預設設定（目前目錄、自動檢測配置）
 await copyEnvs();
 
 // 指定工作區根目錄
@@ -313,7 +410,40 @@ await copyEnvs('/path/to/workspace');
 
 // 同時指定工作區根目錄和自訂配置
 await copyEnvs('/path/to/workspace', 'custom-config.json');
+
+// 使用 JavaScript 配置
+await copyEnvs('/path/to/workspace', '.copy-env.js');
 ```
+
+### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
+
+讀取並解析配置檔案（支援 JSON 和 JavaScript 格式）。
+
+**參數:**
+
+- `workspaceRoot`（可選）：工作區根目錄路徑。預設為 `process.cwd()`
+- `configPath`（可選）：配置檔案路徑。如果未指定，按優先順序自動檢測配置檔案
+
+**回傳:** `Promise<CopyEnvConfig>` - 解析後的配置物件
+
+**範例:**
+
+```typescript
+import { readConfig } from 'copy-env';
+
+// 自動檢測配置檔案（優先順序: .js > .mjs > .cjs > .json）
+const config = await readConfig();
+
+// 指定配置檔案
+const config = await readConfig(process.cwd(), '.copy-env.js');
+
+// 在自訂腳本中使用
+const config = await readConfig();
+console.log('工作區根目錄:', config.workspaceRoot);
+console.log('套件:', config.packages);
+```
+
+**注意:** JavaScript 配置檔案需要非同步載入。如果您需要同步讀取（僅限 JSON），可以從套件中匯入 `readConfigSync`。
 
 ## 授權
 

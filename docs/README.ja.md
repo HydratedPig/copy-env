@@ -8,10 +8,12 @@ monorepo プロジェクトで `.env.example` を `.env` に自動的にコピ�
 
 - 🚀 **自動検出**: pnpm と lerna の monorepo アーキテクチャをサポート
 - 📦 **複数のパッケージマネージャー**: pnpm-workspace.yaml と lerna.json に対応
-- ⚙️ **設定可能**: `.copy-env.json` でカスタマイズ可能
+- ⚙️ **柔軟な設定**: JSON、JavaScript (ESM/CJS)、関数ベースの設定をサポート
+- 🎯 **動的ランタイム設定**: JavaScript を使用して環境ベースの設定ロジックを実現
 - 🔄 **スマートマージ**: 既存の環境変数の値を保持
-- 🎯 **ゼロコンフィグ**: 合理的なデフォルト値ですぐに使える
+- 🌐 **ゼロコンフィグ**: 合理的なデフォルト値ですぐに使える
 - 🛡️ **型安全**: TypeScript で書かれ、完全な型定義を提供
+- ⚡ **非同期サポート**: 関数ベースの設定で非同期操作をサポート
 
 ## インストール
 
@@ -88,6 +90,19 @@ copy-env [options]
 
 ## 設定
 
+copy-env は最大限の柔軟性のために複数の設定形式をサポートしています：
+
+### 設定ファイル形式
+
+copy-env は以下の優先順位で設定ファイルを自動検出して読み込みます：
+
+1. **`.copy-env.js`** - ESM JavaScript（動的設定に推奨）
+2. **`.copy-env.mjs`** - ESM JavaScript
+3. **`.copy-env.cjs`** - CommonJS JavaScript
+4. **`.copy-env.json`** - JSON/JSON5
+
+#### JSON 設定
+
 プロジェクトのルートに `.copy-env.json` ファイルを作成：
 
 ```json
@@ -98,6 +113,59 @@ copy-env [options]
   "packages": ["packages/*", "apps/*"]
 }
 ```
+
+#### JavaScript 設定
+
+JavaScript 設定ファイルは、ランタイムロジックでより柔軟性を提供します：
+
+**ESM 形式 (`.copy-env.js` または `.copy-env.mjs`):**
+
+```javascript
+// .copy-env.js
+export default {
+  workspaceRoot: process.cwd(),
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  type: 'auto',
+  // 環境変数に基づく動的設定
+  packages: process.env.CUSTOM_PACKAGES?.split(','),
+};
+```
+
+**関数ベースの設定（非同期サポート）:**
+
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction ? '.env.production.example' : '.env.example',
+    envName: isProduction ? '.env.production' : '.env.local',
+    type: 'auto',
+  };
+}
+```
+
+**CommonJS 形式 (`.copy-env.cjs`):**
+
+```javascript
+// .copy-env.cjs
+module.exports = {
+  workspaceRoot: process.cwd(),
+  type: 'pnpm',
+  packages: ['packages/web', 'packages/api'],
+};
+```
+
+**JavaScript 設定の利点:**
+- 🎯 **動的設定**: 環境変数やランタイム条件に基づいて設定を調整
+- 🔧 **コードの再利用**: ユーティリティをインポートし、設定間でロジックを共有
+- 📝 **より良いコメント**: JavaScript コメントでより充実したドキュメントを提供
+- ⚡ **非同期サポート**: リモート設定の取得やデータベースからの読み取り
+- 🛠️ **型安全**: JSDoc または TypeScript で IntelliSense を取得
+
+完全な動作例については [examples/js-config-examples](../examples/js-config-examples) を参照してください。
 
 ### 設定オプション
 
@@ -195,6 +263,35 @@ Yarn workspaces を使用した Lerna workspace。
 - **相対パス解決**: 各パッケージは自身のディレクトリから `../shared-config/env.template` を解決
 - **共有テンプレート**: すべてのパッケージが同じ環境テンプレートを使用
 - **柔軟な設定**: 必要に応じて異なるパッケージが異なるテンプレートを使用可能
+
+### 5. JavaScript 設定
+[examples/js-config-examples](../examples/js-config-examples)
+
+動的ランタイム設定のための JavaScript ファイルを使用した高度な設定。
+
+**機能:**
+- ✅ ESM 形式 (`.copy-env.js`, `.copy-env.mjs`)
+- ✅ CommonJS 形式 (`.copy-env.cjs`)
+- ✅ 関数ベースの非同期設定
+- ✅ 環境ベースの動的設定
+- ✅ ランタイムロジックと計算
+
+**例：環境ベースの動的設定**
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction
+      ? '.env.production.example'
+      : '.env.example',
+    envName: isProduction
+      ? '.env.production'
+      : '.env.local',
+  };
+}
+```
 
 ## 環境変数のマージ
 
@@ -298,14 +395,14 @@ copy-env はスマートな検出と処理ワークフローに従います：
 **パラメータ:**
 
 - `workspaceRoot`（オプション）：ワークスペースルートディレクトリパス。デフォルトは `process.cwd()`
-- `configPath`（オプション）：設定ファイルのパス。デフォルトは `.copy-env.json`
+- `configPath`（オプション）：設定ファイルのパス。デフォルトは自動検出
 
 **例:**
 
 ```typescript
 import { copyEnvs } from 'copy-env';
 
-// デフォルト設定を使用（現在のディレクトリ、.copy-env.json）
+// デフォルト設定を使用（現在のディレクトリ、自動検出設定）
 await copyEnvs();
 
 // ワークスペースルートを指定
@@ -313,7 +410,40 @@ await copyEnvs('/path/to/workspace');
 
 // ワークスペースルートとカスタム設定の両方を指定
 await copyEnvs('/path/to/workspace', 'custom-config.json');
+
+// JavaScript 設定を使用
+await copyEnvs('/path/to/workspace', '.copy-env.js');
 ```
+
+### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
+
+設定ファイルを読み取って解析します（JSON と JavaScript 形式をサポート）。
+
+**パラメータ:**
+
+- `workspaceRoot`（オプション）：ワークスペースルートディレクトリパス。デフォルトは `process.cwd()`
+- `configPath`（オプション）：設定ファイルのパス。指定しない場合、優先順位に従って設定ファイルを自動検出
+
+**戻り値:** `Promise<CopyEnvConfig>` - 解析された設定オブジェクト
+
+**例:**
+
+```typescript
+import { readConfig } from 'copy-env';
+
+// 設定ファイルを自動検出（優先順位: .js > .mjs > .cjs > .json）
+const config = await readConfig();
+
+// 設定ファイルを指定
+const config = await readConfig(process.cwd(), '.copy-env.js');
+
+// カスタムスクリプトで使用
+const config = await readConfig();
+console.log('ワークスペースルート:', config.workspaceRoot);
+console.log('パッケージ:', config.packages);
+```
+
+**注意:** JavaScript 設定ファイルは非同期読み込みが必要��す。同期読み取りが必要な場合（JSON のみ）、パッケージから `readConfigSync` をインポート���きます。
 
 ## ライセンス
 
