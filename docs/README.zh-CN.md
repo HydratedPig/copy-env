@@ -176,6 +176,7 @@ module.exports = {
 | `envName` | `string` | `.env.local` | 目标环境变量文件名或路径（支持相对路径和绝对路径） |
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo 类型 |
 | `packages` | `string[]` | `undefined` | 手动指定包目录（支持 glob 模式） |
+| `once` | `string[] \| RegExp` | `undefined` | 只复制一次的环境变量。如果目标环境文件已存在这些变量，则不会覆盖（无论值是否为空都保留现有值） |
 
 ### 路径解析
 
@@ -304,6 +305,9 @@ export default async function() {
    - 如果 `.env` 中的值**非空**，则**保留**现有值
    - 如果 `.env` 中的值**为空**，则使用 `.env.example` 中的值更新
 3. **移除变量**: 仅存在于 `.env` 但不在 `.env.example` 中的变量将被**移除**
+4. **仅复制一次的变量**（配置 `once` 时）：匹配 `once` 模式的变量，如果已存在于 `.env` 中，**永远不会被覆盖**，无论值是否为空
+   - 使用字符串数组：`"once": ["SECRET_KEY", "API_TOKEN"]`
+   - 使用正则表达式：`"once": "/^(SECRET|API)_/"` (JSON 中) 或 `once: /^(SECRET|API)_/` (JS 中)
 
 ### 示例
 
@@ -341,6 +345,64 @@ NEW_FEATURE_FLAG=true
 - ✅ `DATABASE_URL`: 使用 `.env.example` 中的值更新（原为空）
 - ✅ `NEW_FEATURE_FLAG`: 添加新变量
 - ❌ `OLD_VARIABLE`: 移除（不在 `.env.example` 中）
+
+### 使用 `once` 参数
+
+`once` 参数用于指定只应设置一次且永远不会被覆盖的环境变量，即使它们在 `.env` 中为空。这对以下场景特别有用：
+- 应该手动设置的密钥
+- 开发者单独配置的 API 令牌
+- 应保留初始空状态的变量
+
+**配置 `once`：**
+
+```json
+{
+  "envExampleName": ".env.example",
+  "envName": ".env.local",
+  "once": ["SECRET_KEY", "API_TOKEN"]
+}
+```
+
+或使用正则表达式模式（在 JavaScript 配置中）：
+
+```javascript
+// .copy-env.js
+export default {
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  once: /^(SECRET|API)_/  // 匹配所有以 SECRET_ 或 API_ 开头的变量
+};
+```
+
+**示例行为：**
+
+`.env.example`:
+```env
+API_URL=https://api.example.com
+SECRET_KEY=default-key-do-not-use
+API_TOKEN=your-token-here
+```
+
+`.env` (处理前):
+```env
+API_URL=https://api.staging.com
+SECRET_KEY=
+API_TOKEN=my-personal-token
+```
+
+**使用 `once: ["SECRET_KEY", "API_TOKEN"]` 运行 copy-env 后：**
+
+`.env` (处理后):
+```env
+API_URL=https://api.staging.com
+SECRET_KEY=
+API_TOKEN=my-personal-token
+```
+
+**发生了什么：**
+- ✅ `API_URL`: 从 `.env.example` 更新（不在 `once` 列表中，原为空）
+- ✅ `SECRET_KEY`: **保留空值**（在 `once` 列表中，存在于目标文件）
+- ✅ `API_TOKEN`: **保留现有值**（在 `once` 列表中，存在于目标文件）
 
 ### 解析规则
 
