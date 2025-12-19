@@ -1,0 +1,12 @@
+{
+  "name": "lerna-monorepo-example",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "postinstall": "copy-env"
+  },
+  "packageManager": "yarn@1.22.22",
+  "devDependencies": {
+    "copy-env": "../.."
+  }
+}

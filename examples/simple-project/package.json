@@ -1,0 +1,11 @@
+{
+  "name": "simple-project-example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "copy-env"
+  },
+  "devDependencies": {
+    "copy-env": "../.."
+  }
+}

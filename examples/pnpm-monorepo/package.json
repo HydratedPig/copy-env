@@ -1,0 +1,11 @@
+{
+  "name": "pnpm-monorepo-example",
+  "private": true,
+  "scripts": {
+    "postinstall": "copy-env"
+  },
+  "devDependencies": {
+    "copy-env": "../.."
+  },
+  "packageManager": "pnpm@8.15.1"
+}

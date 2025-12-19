@@ -1,0 +1,4 @@
+{
+  "envExampleName": "../../shared-config/env.template",
+  "envName": ".env"
+}

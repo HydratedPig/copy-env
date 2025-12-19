@@ -1,0 +1,5 @@
+{
+  "envExampleName": ".env.example",
+  "envName": ".env",
+  "type": "auto"
+}

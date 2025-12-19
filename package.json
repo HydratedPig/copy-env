@@ -1,0 +1,74 @@
+{
+  "name": "copy-env",
+  "type": "module",
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.0.0",
+  "description": "Automatically copy .env.example to .env in monorepo projects",
+  "author": "HydratedPig",
+  "license": "MIT",
+  "homepage": "https://github.com/HydratedPig/copy-env#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HydratedPig/copy-env.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HydratedPig/copy-env/issues"
+  },
+  "keywords": [
+    "env",
+    "environment",
+    "monorepo",
+    "pnpm",
+    "lerna",
+    "copy",
+    "cli"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "copy-env": "./dist/cli.mjs"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "dist",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "rolldown -c rolldown.config.ts --watch",
+    "build": "rolldown -c rolldown.config.ts",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "cac": "^6.7.14",
+    "js-yaml": "^4.1.0",
+    "json5": "^2.2.3"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^3.13.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.39.2",
+    "rolldown": "^1.0.0-beta.55",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "engines": {
+      "node": ">=16.0.0"
+    }
+  }
+}

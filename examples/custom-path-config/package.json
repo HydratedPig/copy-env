@@ -1,0 +1,10 @@
+{
+  "name": "custom-path-config-example",
+  "private": true,
+  "scripts": {
+    "postinstall": "copy-env"
+  },
+  "devDependencies": {
+    "copy-env": "../.."
+  }
+}
