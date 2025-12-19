@@ -8,10 +8,12 @@ Automatically copy `.env.example` to `.env.local` in monorepo projects.
 
 - 🚀 **Automatic Detection**: Supports both pnpm and lerna monorepo architectures
 - 📦 **Multiple Package Managers**: Works with pnpm-workspace.yaml and lerna.json
-- ⚙️ **Configurable**: Customize via `.copy-env.json`
+- ⚙️ **Flexible Configuration**: Supports JSON, JavaScript (ESM/CJS), and function-based configs
+- 🎯 **Dynamic Runtime Config**: Use JavaScript for environment-based configuration logic
 - 🔄 **Smart Merge**: Preserves existing environment variable values
-- 🎯 **Zero Config**: Works out of the box with sensible defaults
+- 🌐 **Zero Config**: Works out of the box with sensible defaults
 - 🛡️ **Type Safe**: Written in TypeScript with full type definitions
+- ⚡ **Async Support**: Function-based configs support async operations
 
 ## Installation
 
@@ -88,6 +90,19 @@ Examples:
 
 ## Configuration
 
+copy-env supports multiple configuration formats for maximum flexibility:
+
+### Configuration File Formats
+
+copy-env automatically detects and loads configuration files in the following priority order:
+
+1. **`.copy-env.js`** - ESM JavaScript (recommended for dynamic configs)
+2. **`.copy-env.mjs`** - ESM JavaScript
+3. **`.copy-env.cjs`** - CommonJS JavaScript
+4. **`.copy-env.json`** - JSON/JSON5
+
+#### JSON Configuration
+
 Create a `.copy-env.json` file in your project root:
 
 ```json
@@ -99,6 +114,59 @@ Create a `.copy-env.json` file in your project root:
   "packages": ["packages/*", "apps/*"]
 }
 ```
+
+#### JavaScript Configuration
+
+JavaScript configuration files provide more flexibility with runtime logic:
+
+**ESM Format (`.copy-env.js` or `.copy-env.mjs`):**
+
+```javascript
+// .copy-env.js
+export default {
+  workspaceRoot: process.cwd(),
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  type: 'auto',
+  // Dynamic configuration based on environment
+  packages: process.env.CUSTOM_PACKAGES?.split(','),
+};
+```
+
+**Function-based Configuration (async supported):**
+
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction ? '.env.production.example' : '.env.example',
+    envName: isProduction ? '.env.production' : '.env.local',
+    type: 'auto',
+  };
+}
+```
+
+**CommonJS Format (`.copy-env.cjs`):**
+
+```javascript
+// .copy-env.cjs
+module.exports = {
+  workspaceRoot: process.cwd(),
+  type: 'pnpm',
+  packages: ['packages/web', 'packages/api'],
+};
+```
+
+**Benefits of JavaScript Configuration:**
+- 🎯 **Dynamic Configuration**: Adjust settings based on environment variables or runtime conditions
+- 🔧 **Code Reuse**: Import utilities and share logic across configurations
+- 📝 **Better Comments**: Use JavaScript comments for richer documentation
+- ⚡ **Async Support**: Fetch remote configs or read from databases
+- 🛠️ **Type Safety**: Get IntelliSense with JSDoc or TypeScript
+
+See [examples/js-config-examples](./examples/js-config-examples) for complete working examples.
 
 ### Configuration Options
 
@@ -196,6 +264,35 @@ This example demonstrates:
 - **Relative path resolution**: Each package resolves `../shared-config/env.template` relative to its own directory
 - **Shared templates**: All packages use the same environment template
 - **Flexible configuration**: Different packages can use different templates if needed
+
+### 5. JavaScript Configuration
+[examples/js-config-examples](./examples/js-config-examples)
+
+Advanced configuration using JavaScript files for dynamic runtime configuration.
+
+**Features:**
+- ✅ ESM format (`.copy-env.js`, `.copy-env.mjs`)
+- ✅ CommonJS format (`.copy-env.cjs`)
+- ✅ Function-based async configuration
+- ✅ Environment-based dynamic configs
+- ✅ Runtime logic and calculations
+
+**Example: Dynamic environment-based config**
+```javascript
+// .copy-env.mjs
+export default async function() {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  return {
+    envExampleName: isProduction
+      ? '.env.production.example'
+      : '.env.example',
+    envName: isProduction
+      ? '.env.production'
+      : '.env.local',
+  };
+}
+```
 
 ## Environment Variable Merging
 
@@ -299,14 +396,14 @@ Programmatically run copy-env from your code.
 **Parameters:**
 
 - `workspaceRoot` (optional): The workspace root directory path. Defaults to `process.cwd()`
-- `configPath` (optional): Path to the configuration file. Defaults to `.copy-env.json`
+- `configPath` (optional): Path to the configuration file. Defaults to auto-detection
 
 **Example:**
 
 ```typescript
 import { copyEnvs } from 'copy-env';
 
-// Use default settings (current directory, .copy-env.json)
+// Use default settings (current directory, auto-detect config)
 await copyEnvs();
 
 // Specify workspace root
@@ -314,7 +411,40 @@ await copyEnvs('/path/to/workspace');
 
 // Specify both workspace root and custom config
 await copyEnvs('/path/to/workspace', 'custom-config.json');
+
+// Use JavaScript config
+await copyEnvs('/path/to/workspace', '.copy-env.js');
 ```
+
+### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
+
+Read and parse the configuration file (supports both JSON and JavaScript formats).
+
+**Parameters:**
+
+- `workspaceRoot` (optional): The workspace root directory path. Defaults to `process.cwd()`
+- `configPath` (optional): Path to the configuration file. If not specified, auto-detects config file by priority
+
+**Returns:** `Promise<CopyEnvConfig>` - The parsed configuration object
+
+**Example:**
+
+```typescript
+import { readConfig } from 'copy-env';
+
+// Auto-detect config file (priority: .js > .mjs > .cjs > .json)
+const config = await readConfig();
+
+// Specify config file
+const config = await readConfig(process.cwd(), '.copy-env.js');
+
+// Use in custom scripts
+const config = await readConfig();
+console.log('Workspace root:', config.workspaceRoot);
+console.log('Packages:', config.packages);
+```
+
+**Note:** JavaScript configuration files require async loading. If you need synchronous reading (JSON only), you can import `readConfigSync` from the package.
 
 ## License
 

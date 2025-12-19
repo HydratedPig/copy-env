@@ -1,6 +1,5 @@
 import process from 'node:process';
 import { readConfig } from './config';
-import { COPY_ENV_CONFIG_FILENAME } from './constant';
 import { CopyEnvManager } from './manager';
 
 /**
@@ -8,10 +7,10 @@ import { CopyEnvManager } from './manager';
  */
 export async function copyEnvs(
   workspaceRoot: string = process.cwd(),
-  configPath: string = COPY_ENV_CONFIG_FILENAME,
+  configPath?: string,
 ): Promise<void> {
-  // Read configuration
-  const config = readConfig(workspaceRoot, configPath);
+  // Read configuration (支持异步加载 JS 配置文件)
+  const config = await readConfig(workspaceRoot, configPath);
   const manager = new CopyEnvManager(config);
   await manager.execute();
 }

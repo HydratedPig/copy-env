@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+#### JavaScript Configuration Support
+- **Multiple config formats**: Support for `.copy-env.js`, `.copy-env.mjs`, `.copy-env.cjs` in addition to `.copy-env.json`
+- **Auto-detection with priority**: Automatically detect and load config files by priority (`.js` > `.mjs` > `.cjs` > `.json`)
+- **ESM support**: Full ES Module support with `export default` syntax
+- **CommonJS support**: Full CommonJS support with `module.exports` syntax
+- **Function-based configs**: Support exporting a function that returns config (sync or async)
+- **Dynamic configuration**: Enable runtime logic and environment-based configuration
+- **Async configuration**: Support for async operations in function-based configs (e.g., fetching remote configs)
+
+#### New APIs
+- `readConfig()`: Async function to read and parse config files (supports all formats)
+- `readConfigSync()`: Sync function for JSON-only config reading (backward compatibility)
+- Export `COPY_ENV_CONFIG_FILENAMES` constant for supported config file names
+
+#### Examples and Documentation
+- New example directory: `examples/js-config-examples` with complete JavaScript config examples
+  - ESM format example (`.copy-env.js`)
+  - Function-based async config example (`.copy-env-function.mjs`)
+  - CommonJS format example (`.copy-env-cjs.cjs`)
+  - Test script to verify all config formats
+  - Comprehensive README with usage guide
+- Updated main README with JavaScript configuration documentation
+- Added API documentation for `readConfig` function
+
+### Changed
+- `readConfig()` is now async to support dynamic JavaScript module loading
+- `copyEnvs()` now supports optional `configPath` parameter (defaults to auto-detection)
+- Config file auto-detection: when `configPath` is not specified, automatically searches for config files by priority
+- Updated CLI to support async config loading
+- Improved error messages for JavaScript config files
+
+### Technical Details
+- Use `pathToFileURL` for cross-platform dynamic module imports
+- Support both `default export` and named exports in JavaScript configs
+- Function-based configs can return `Promise<CopyEnvConfig>` or `CopyEnvConfig`
+- Backward compatible: existing JSON configs continue to work without changes
+
 ## [1.0.0] - 2025-12-19
 
 ### Added

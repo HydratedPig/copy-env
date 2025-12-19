@@ -20,8 +20,8 @@ cli.command('[...args]', 'Copy .env.example to .env in monorepo projects').actio
     const workspaceRoot = options.root || process.cwd();
     const configPath = options.config;
 
-    // Read configuration
-    const config = readConfig(workspaceRoot, configPath);
+    // Read configuration (支持异步加载 JS 配置文件)
+    const config = await readConfig(workspaceRoot, configPath);
 
     // Execute copy operation
     const manager = new CopyEnvManager(config);
