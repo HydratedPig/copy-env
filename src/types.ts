@@ -31,4 +31,14 @@ export interface CopyEnvConfig {
    * @default 'auto'
    */
   type?: 'pnpm' | 'lerna' | 'auto';
+
+  /**
+   * Environment variables that should only be copied once
+   * If the target .env already has these variables, they will not be overwritten
+   * Can be:
+   * - string[]: Array of exact variable names
+   * - RegExp: Regular expression to match variable names
+   * @default undefined
+   */
+  once?: string[] | RegExp;
 }

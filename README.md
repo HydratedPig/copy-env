@@ -177,6 +177,7 @@ See [examples/js-config-examples](./examples/js-config-examples) for complete wo
 | `envName` | `string` | `.env.local` | Target env file name or path (supports relative and absolute paths) |
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo type |
 | `packages` | `string[]` | `undefined` | Manually specify package directories (glob patterns supported) |
+| `once` | `string[] \| RegExp` | `undefined` | Environment variables that should only be copied once. If target env already has these variables, they will not be overwritten (preserves existing values regardless of whether they're empty) |
 
 ### Path Resolution
 
@@ -305,6 +306,9 @@ When copying environment files, copy-env intelligently merges values from both `
    - If the value in `.env.local` is **non-empty**, the existing value is **preserved**
    - If the value in `.env.local` is **empty**, it will be updated with the value from `.env.example`
 3. **Removed Variables**: Variables that only exist in `.env.local` but not in `.env.example` will be **removed**
+4. **Once-Only Variables** (when `once` is configured): Variables matching the `once` pattern will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
+   - Use `once` with string array: `"once": ["SECRET_KEY", "API_TOKEN"]`
+   - Use `once` with RegExp: `"once": "/^(SECRET|API)_/"` (in JSON) or `once: /^(SECRET|API)_/` (in JS)
 
 ### Example
 
@@ -342,6 +346,64 @@ NEW_FEATURE_FLAG=true
 - ✅ `DATABASE_URL`: Updated with value from `.env.example` (was empty)
 - ✅ `NEW_FEATURE_FLAG`: Added new variable
 - ❌ `OLD_VARIABLE`: Removed (not in `.env.example`)
+
+### Using the `once` Parameter
+
+The `once` parameter is useful for environment variables that should only be set once and never overwritten, even if they're empty in `.env.local`. This is particularly useful for:
+- Secret keys that should be manually set
+- API tokens that developers configure individually
+- Variables that should preserve their initial empty state
+
+**Configuration with `once`:**
+
+```json
+{
+  "envExampleName": ".env.example",
+  "envName": ".env.local",
+  "once": ["SECRET_KEY", "API_TOKEN"]
+}
+```
+
+Or using RegExp pattern (in JavaScript config):
+
+```javascript
+// .copy-env.js
+export default {
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  once: /^(SECRET|API)_/  // Matches all variables starting with SECRET_ or API_
+};
+```
+
+**Example Behavior:**
+
+`.env.example`:
+```env
+API_URL=https://api.example.com
+SECRET_KEY=default-key-do-not-use
+API_TOKEN=your-token-here
+```
+
+`.env.local` (before):
+```env
+API_URL=https://api.staging.com
+SECRET_KEY=
+API_TOKEN=my-personal-token
+```
+
+**After running copy-env with `once: ["SECRET_KEY", "API_TOKEN"]`:**
+
+`.env.local` (after):
+```env
+API_URL=https://api.staging.com
+SECRET_KEY=
+API_TOKEN=my-personal-token
+```
+
+**What happened:**
+- ✅ `API_URL`: Updated from `.env.example` (not in `once` list, was empty)
+- ✅ `SECRET_KEY`: **Preserved empty value** (in `once` list, exists in target)
+- ✅ `API_TOKEN`: **Kept existing value** (in `once` list, exists in target)
 
 ### Parsing Rules
 

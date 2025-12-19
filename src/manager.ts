@@ -70,6 +70,17 @@ export class CopyEnvManager {
       }
     }
 
+    // Handle 'once' configuration
+    // If a key matches 'once' pattern and exists in target env, don't copy it
+    if (this.config.once) {
+      for (const k of exampleEnvMap.keys()) {
+        if (this.shouldSkipOnce(k) && targetEnvMap.has(k)) {
+          // Skip copying this key, keep the target value
+          exampleEnvMap.set(k, targetEnvMap.get(k)!);
+        }
+      }
+    }
+
     const envStr = Array.from(exampleEnvMap.entries())
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
@@ -78,6 +89,25 @@ export class CopyEnvManager {
     console.log(
       `✓ Successfully copied \x1B[32m${exampleEnvMap.size}\x1B[0m envs: ${pkgPath}`,
     );
+  }
+
+  /**
+   * Check if a key should be skipped based on 'once' configuration
+   */
+  private shouldSkipOnce(key: string): boolean {
+    if (!this.config.once) {
+      return false;
+    }
+
+    if (Array.isArray(this.config.once)) {
+      return this.config.once.includes(key);
+    }
+
+    if (this.config.once instanceof RegExp) {
+      return this.config.once.test(key);
+    }
+
+    return false;
   }
 
   /**
