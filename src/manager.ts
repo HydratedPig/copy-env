@@ -14,12 +14,33 @@ export class CopyEnvManager {
   private config: CopyEnvConfig;
   private envExampleName: string;
   private envName: string;
+  private skipPatterns: RegExp[];
 
   constructor(config: CopyEnvConfig = {}) {
     this.workspaceRoot = config.workspaceRoot || process.cwd();
     this.config = config;
     this.envExampleName = config.envExampleName || ENV_EXAMPLE_FILENAME;
     this.envName = config.envName || ENV_TARGET_FILENAME;
+    this.skipPatterns = this.normalizeSkipPatterns(config.skipIfExists);
+  }
+
+  /**
+   * Normalize skipIfExists config to RegExp array
+   */
+  private normalizeSkipPatterns(
+    skipIfExists?: (string | RegExp)[] | RegExp | string,
+  ): RegExp[] {
+    if (!skipIfExists) {
+      return [];
+    }
+
+    // Convert to array
+    const patterns = Array.isArray(skipIfExists) ? skipIfExists : [skipIfExists];
+
+    // Convert all strings to RegExp
+    return patterns.map(pattern =>
+      typeof pattern === 'string' ? new RegExp(pattern) : pattern,
+    );
   }
 
   /**
@@ -70,11 +91,11 @@ export class CopyEnvManager {
       }
     }
 
-    // Handle 'once' configuration
-    // If a key matches 'once' pattern and exists in target env, don't copy it
-    if (this.config.once) {
+    // Handle 'skipIfExists' configuration
+    // If a key matches skipIfExists pattern and exists in target env, don't copy it
+    if (this.skipPatterns.length > 0) {
       for (const k of exampleEnvMap.keys()) {
-        if (this.shouldSkipOnce(k) && targetEnvMap.has(k)) {
+        if (this.shouldSkipIfExists(k) && targetEnvMap.has(k)) {
           // Skip copying this key, keep the target value
           exampleEnvMap.set(k, targetEnvMap.get(k)!);
         }
@@ -98,22 +119,10 @@ export class CopyEnvManager {
   }
 
   /**
-   * Check if a key should be skipped based on 'once' configuration
+   * Check if a key should be skipped based on 'skipIfExists' configuration
    */
-  private shouldSkipOnce(key: string): boolean {
-    if (!this.config.once) {
-      return false;
-    }
-
-    if (Array.isArray(this.config.once)) {
-      return this.config.once.includes(key);
-    }
-
-    if (this.config.once instanceof RegExp) {
-      return this.config.once.test(key);
-    }
-
-    return false;
+  private shouldSkipIfExists(key: string): boolean {
+    return this.skipPatterns.some(pattern => pattern.test(key));
   }
 
   /**

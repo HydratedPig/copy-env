@@ -176,7 +176,7 @@ module.exports = {
 | `envName` | `string` | `.env.local` | ターゲット env ファイル名またはパス（相対パスと絶対パスをサポート） |
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo のタイプ |
 | `packages` | `string[]` | `undefined` | パッケージディレクトリを手動で指定（glob パターンをサポート） |
-| `once` | `string[] \| RegExp` | `undefined` | 一度だけコピーすべき環境変数。ターゲット env ファイルに既に存在する場合、上書きされません（値が空かどうかに関わらず��存の値を保持） |
+| `skipIfExists` | `(string \| RegExp)[] \| RegExp \| string` | `undefined` | ターゲット .env に既に存在する場合はスキップする環境変数。ターゲット env に既に存在する場合、上書きされません（値が空かどうかに関わらず既存の値を保持）。文字列（正規表現パターン）、RegExp、または両方の配列を指定可能 |
 
 ### パス解決
 
@@ -305,9 +305,9 @@ export default async function() {
    - `.env` の値が**空でない**場合、既存の値が**保持**されます
    - `.env` の値が**空**の場合、`.env.example` の値で更新されます
 3. **��除された変数**: `.env` にのみ存在し `.env.example` にない変数は**削除**されます
-4. **一度だけの変数**（`once` が設定されている場合）：`once` パターンに一致する変数は、`.env` に既に存在する場合、**決して上書きされません**（値が空かどうかに関わらず）
-   - 文字列配列を使用：`"once": ["SECRET_KEY", "API_TOKEN"]`
-   - 正規表現を使用：`"once": "/^(SECRET|API)_/"` (JSON) または `once: /^(SECRET|API)_/` (JS)
+4. **スキップする変数**（`skipIfExists` が設定されている場合）：`skipIfExists` パターンに一致する変数は、`.env` に既に存在する場合、**決して上書きされません**（値が空かどうかに関わらず）
+   - 文字列（正規表現パターン）を使用：`"skipIfExists": "^SECRET_KEY$"`
+   - 正規表現を使用：`"skipIfExists": "/^(SECRET|API)_/"` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JS)
 
 ### 例
 
@@ -346,20 +346,20 @@ NEW_FEATURE_FLAG=true
 - ✅ `NEW_FEATURE_FLAG`: 新しい変数を追加
 - ❌ `OLD_VARIABLE`: 削除（`.env.example` にない）
 
-### `once` パラメータの使用
+### `skipIfExists` パラメータの使用
 
-`once` パラメータは、一度だけ設定され、`.env` で空であっても決して上書きされない環境変数を指定するのに便利です。これは特に以下の場合に有用です：
+`skipIfExists` パラメータは、一度だけ設定され、`.env` で空であっても決して上書きされない環境変数を指定するのに便利です。これは特に以下の場合に有用です：
 - 手動で設定すべき秘密鍵
 - 開発者が個別に設定する API トークン
 - 初期の空の状態を保持すべき変数
 
-**`once` の設定：**
+**`skipIfExists` の設定：**
 
 ```json
 {
   "envExampleName": ".env.example",
   "envName": ".env.local",
-  "once": ["SECRET_KEY", "API_TOKEN"]
+  "skipIfExists": ["SECRET_KEY", "API_TOKEN"]
 }
 ```
 
@@ -370,7 +370,7 @@ NEW_FEATURE_FLAG=true
 export default {
   envExampleName: '.env.example',
   envName: '.env.local',
-  once: /^(SECRET|API)_/  // SECRET_ または API_ で始まるすべての変数に一致
+  skipIfExists: /^(SECRET|API)_/  // SECRET_ または API_ で始まるすべての変数に一致
 };
 ```
 
@@ -390,7 +390,7 @@ SECRET_KEY=
 API_TOKEN=my-personal-token
 ```
 
-**`once: ["SECRET_KEY", "API_TOKEN"]` で copy-env を実行後：**
+**`skipIfExists: ["SECRET_KEY", "API_TOKEN"]` で copy-env を実行後：**
 
 `.env` (処理後):
 ```env
@@ -400,9 +400,9 @@ API_TOKEN=my-personal-token
 ```
 
 **何が起こったか：**
-- ✅ `API_URL`: `.env.example` から更新（`once` リストにない、空だった）
-- ✅ `SECRET_KEY`: **空の値を保持**（`once` リストにある、ターゲットファイルに存在）
-- ✅ `API_TOKEN`: **既存の値を保持**（`once` リストにある、ターゲットファイルに存在）
+- ✅ `API_URL`: `.env.example` から更新（`skipIfExists` リストにない、空だった）
+- ✅ `SECRET_KEY`: **空の値を保持**（`skipIfExists` リストにある、ターゲットファイルに存在）
+- ✅ `API_TOKEN`: **既存の値を保持**（`skipIfExists` リストにある、ターゲットファイルに存在）
 
 ### 解析ルール
 

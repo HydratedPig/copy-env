@@ -33,12 +33,13 @@ export interface CopyEnvConfig {
   type?: 'pnpm' | 'lerna' | 'auto';
 
   /**
-   * Environment variables that should only be copied once
+   * Environment variables that should be skipped if they already exist in target .env
    * If the target .env already has these variables, they will not be overwritten
    * Can be:
-   * - string[]: Array of exact variable names
+   * - string: Exact variable name (treated as regex pattern)
    * - RegExp: Regular expression to match variable names
+   * - Array<string | RegExp>: Multiple patterns
    * @default undefined
    */
-  once?: string[] | RegExp;
+  skipIfExists?: (string | RegExp)[] | RegExp | string;
 }

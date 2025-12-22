@@ -176,7 +176,7 @@ module.exports = {
 | `envName` | `string` | `.env.local` | 目標環境變數檔案名稱或路徑（支援相對路徑和絕對路徑） |
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo 類型 |
 | `packages` | `string[]` | `undefined` | 手動指定套件目錄（支援 glob 模式） |
-| `once` | `string[] \| RegExp` | `undefined` | 只複製一次的環境變數。如果目標環境檔案已存在這些變數，則不會覆寫（無論值是否為空都保留現有值） |
+| `skipIfExists` | `(string \| RegExp)[] \| RegExp \| string` | `undefined` | 如果目標環境檔案中已存在這些變數，則跳過複製。如果目標 .env 已有這些變數，將不會覆寫（無論值是否為空都保留現有值）。可以是字串（正規表示式模式）、RegExp 或兩者的陣列 |
 
 ### 路徑解析
 
@@ -305,9 +305,10 @@ export default async function() {
    - 如果 `.env` 中的值**非空**，則**保留**現有值
    - 如果 `.env` 中的值**為空**，則使用 `.env.example` 中的值更新
 3. **移除變數**: 僅存在於 `.env` 但不在 `.env.example` 中的變數將被**移除**
-4. **僅複製一次的變數**（設定 `once` 時）：符合 `once` 模式的變數，如果已存在於 `.env` 中，**永遠不會被覆寫**，無論值是否為空
-   - 使用字串陣列：`"once": ["SECRET_KEY", "API_TOKEN"]`
-   - 使用正規表示式：`"once": "/^(SECRET|API)_/"` (JSON 中) 或 `once: /^(SECRET|API)_/` (JS 中)
+4. **跳過已存在的變數**（設定 `skipIfExists` 時）：符合 `skipIfExists` 模式的變數，如果已存在於 `.env` 中，**永遠不會被覆寫**，無論值是否為空
+   - 使用字串（正規表示式模式）：`"skipIfExists": "^SECRET_KEY$"`
+   - 使用正規表示式：`"skipIfExists": "/^(SECRET|API)_/"` (JSON 中) 或 `skipIfExists: /^(SECRET|API)_/` (JS 中)
+   - 使用陣列：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` 或混合 RegExp 和字串
 
 ### 範例
 
@@ -346,31 +347,52 @@ NEW_FEATURE_FLAG=true
 - ✅ `NEW_FEATURE_FLAG`: 新增新變數
 - ❌ `OLD_VARIABLE`: 移除（不在 `.env.example` 中）
 
-### 使用 `once` 參數
+### 使用 `skipIfExists` 參數
 
-`once` 參數用於指定只應設定一次且永遠不會被覆寫的環境變數，即使它們在 `.env` 中為空。這對以下場景特別有用：
+`skipIfExists` 參數用於指定只應設定一次且永遠不會被覆寫的環境變數，即使它們在 `.env` 中為空。這對以下場景特別有用：
 - 應該手動設定的密鑰
 - 開發者單獨設定的 API 令牌
 - 應保留初始空狀態的變數
 
-**設定 `once`：**
+**設定 `skipIfExists`：**
 
 ```json
 {
   "envExampleName": ".env.example",
   "envName": ".env.local",
-  "once": ["SECRET_KEY", "API_TOKEN"]
+  "skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]
 }
 ```
 
-或使用正規表示式模式（在 JavaScript 設定中）：
+或使用單個正規表示式模式（在 JavaScript 設定中）：
 
 ```javascript
 // .copy-env.js
 export default {
   envExampleName: '.env.example',
   envName: '.env.local',
-  once: /^(SECRET|API)_/  // 符合所有以 SECRET_ 或 API_ 開頭的變數
+  skipIfExists: /^(SECRET|API)_/  // 符合所有以 SECRET_ 或 API_ 開頭的變數
+};
+```
+
+或使用單個字串模式：
+
+```json
+{
+  "envExampleName": ".env.example",
+  "envName": ".env.local",
+  "skipIfExists": "^SECRET.*"
+}
+```
+
+或在陣列中混合使用多種模式：
+
+```javascript
+// .copy-env.js
+export default {
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  skipIfExists: [/^SECRET_/, "^API_TOKEN$", /CONFIG$/]  // 混合 RegExp 和字串
 };
 ```
 
@@ -390,7 +412,7 @@ SECRET_KEY=
 API_TOKEN=my-personal-token
 ```
 
-**使用 `once: ["SECRET_KEY", "API_TOKEN"]` 執行 copy-env 後：**
+**使用 `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` 執行 copy-env 後：**
 
 `.env` (處理後):
 ```env
@@ -400,9 +422,9 @@ API_TOKEN=my-personal-token
 ```
 
 **發生了什麼：**
-- ✅ `API_URL`: 從 `.env.example` 更新（不在 `once` 列表中，原為空）
-- ✅ `SECRET_KEY`: **保留空值**（在 `once` 列表中，存在於目標檔案）
-- ✅ `API_TOKEN`: **保留現有值**（在 `once` 列表中，存在於目標檔案）
+- ✅ `API_URL`: 從 `.env.example` 更新（不在 `skipIfExists` 列表中，原為空）
+- ✅ `SECRET_KEY`: **保留空值**（在 `skipIfExists` 列表中，存在於目標檔案）
+- ✅ `API_TOKEN`: **保留現有值**（在 `skipIfExists` 列表中，存在於目標檔案）
 
 ### 解析規則
 
