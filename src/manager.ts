@@ -85,6 +85,12 @@ export class CopyEnvManager {
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
 
+    // Ensure the target directory exists before writing
+    const targetDir = path.dirname(targetEnvPath);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
     fs.writeFileSync(targetEnvPath, envStr);
     console.log(
       `✓ Successfully copied \x1B[32m${exampleEnvMap.size}\x1B[0m envs: ${pkgPath}`,
@@ -149,9 +155,34 @@ export class CopyEnvManager {
    * - If relative path, resolve from package directory
    */
   private resolveEnvPath(envFileName: string, pkgPath: string): string {
-    if (path.isAbsolute(envFileName)) {
-      return path.resolve(this.workspaceRoot, envFileName);
+    return this.resolveFilePath(envFileName, pkgPath, this.workspaceRoot);
+  }
+
+  /**
+   * Resolve file path with support for absolute and relative paths
+   * This is a generic path resolution utility that can be reused for any file path resolution
+   *
+   * @param filePath - The file path to resolve (can be absolute or relative)
+   * @param basePath - The base directory for resolving relative paths (typically the package directory)
+   * @param workspaceRoot - The workspace root directory for resolving absolute paths
+   * @returns The resolved absolute file path
+   *
+   * Path resolution rules:
+   * - If the path is an absolute path, it's resolved from workspaceRoot
+   *   Example: '/config/env' -> '{workspaceRoot}/config/env'
+   * - Otherwise, it's treated as relative to basePath
+   *   Example: '../shared/env' -> '{basePath}/../shared/env'
+   */
+  private resolveFilePath(
+    filePath: string,
+    basePath: string,
+    workspaceRoot: string,
+  ): string {
+    if (path.isAbsolute(filePath)) {
+      return path.resolve(workspaceRoot, filePath);
     }
-    return path.resolve(pkgPath, envFileName);
+
+    // For relative paths, resolve from basePath (package directory)
+    return path.resolve(basePath, filePath);
   }
 }
