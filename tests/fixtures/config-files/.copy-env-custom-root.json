@@ -1,0 +1,4 @@
+{
+  "envExampleName": ".env.example",
+  "workspaceRoot": "/custom/workspace"
+}

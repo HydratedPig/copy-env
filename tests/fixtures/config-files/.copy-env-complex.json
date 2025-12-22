@@ -1,0 +1,6 @@
+{
+  "envExampleName": "custom.env.example",
+  "envName": "custom.env",
+  "skipIfExists": ["API_KEY", "SECRET"],
+  "packages": ["packages/*"]
+}

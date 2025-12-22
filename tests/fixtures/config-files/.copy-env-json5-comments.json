@@ -1,0 +1,6 @@
+{
+  // This is a comment
+  "envExampleName": ".env.example",
+  /* Multi-line comment */
+  "envName": ".env"
+}

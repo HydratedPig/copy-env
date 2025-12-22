@@ -51,6 +51,8 @@
     "build": "rolldown -c rolldown.config.ts",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
@@ -62,9 +64,11 @@
     "@antfu/eslint-config": "^3.13.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
+    "@vitest/ui": "^4.0.16",
     "eslint": "^9.39.2",
     "rolldown": "^1.0.0-beta.55",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.16"
   },
   "publishConfig": {
     "engines": {
