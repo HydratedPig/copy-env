@@ -15,13 +15,23 @@
     "url": "https://github.com/HydratedPig/copy-env/issues"
   },
   "keywords": [
+    "copy-env",
+    "copy-env-cli",
     "env",
+    "dotenv",
+    ".env",
+    ".env.example",
+    ".env.local",
     "environment",
+    "environment-variables",
     "monorepo",
+    "workspace",
     "pnpm",
     "lerna",
     "copy",
-    "cli"
+    "cli",
+    "hydratedpig",
+    "hydrated-pig"
   ],
   "exports": {
     ".": {
