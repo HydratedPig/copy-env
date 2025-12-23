@@ -177,6 +177,7 @@ module.exports = {
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo 類型 |
 | `packages` | `string[]` | `undefined` | 手動指定套件目錄（支援 glob 模式） |
 | `skipIfExists` | `(string \| RegExp)[] \| RegExp \| string` | `undefined` | 如果目標環境檔案中已存在這些變數，則跳過複製。如果目標 .env 已有這些變數，將不會覆寫（無論值是否為空都保留現有值）。可以是字串（正規表示式模式）、RegExp 或兩者的陣列 |
+| `preserveCustomVars` | `boolean` | `true` | 是否保留僅存在於目標 .env 但不在 .env.example 中的自訂環境變數。設定為 `false` 時，自訂變數將被刪除 |
 
 ### 路徑解析
 
@@ -216,28 +217,13 @@ module.exports = {
 
 複製環境檔案時，copy-env 會智慧地合併 `.env.example` 和現有 `.env` 中的值：
 
-### 合併規則
-
-#### 預設行為（未配置 `skipIfExists`）
+### 基本合併規則
 
 1. **新變數**: 僅存在於 `.env.example` 中的變數將被新增到 `.env`
 2. **現有變數**: 同時存在於兩個檔案中的變數：
    - 如果 `.env` 中的值**非空**，則**保留**現有值
    - 如果 `.env` 中的值**為空**，則使用 `.env.example` 中的值更新
-3. **移除變數**: 僅存在於 `.env` 但不在 `.env.example` 中的變數將被**移除**
-
-#### 配置 `skipIfExists` 時的行為
-
-當配置了 `skipIfExists` 時，合併行為會發生變化：
-
-1. **符合 `skipIfExists` 模式的變數**: 如果這些變數已存在於 `.env` 中，將**永遠不會被覆寫**，無論值是否為空
-2. **不符合 `skipIfExists` 模式的變數**: 這些變數將**從 `.env.example` 更新**，即使它們在 `.env` 中已有值
-3. **新變數**: `.env` 中不存在的變數將從 `.env.example` 新增
-
-**配置選項：**
-   - 使用字串（正規表示式模式）：`"skipIfExists": "^SECRET_KEY$"`
-   - 使用正規表示式：`"skipIfExists": "/^(SECRET|API)_/"` (JSON 中) 或 `skipIfExists: /^(SECRET|API)_/` (JS 中)
-   - 使用陣列：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` 或混合 RegExp 和字串
+3. **自訂變數**: 僅存在於 `.env` 但不在 `.env.example` 中的變數將**預設保留**（由 `preserveCustomVars` 選項控制）
 
 ### 範例
 
@@ -256,7 +242,7 @@ NEW_FEATURE_FLAG=true
 API_URL=https://api.staging.com
 API_KEY=my-secret-key
 DATABASE_URL=
-OLD_VARIABLE=some-value
+MY_CUSTOM_VAR=my-value
 ```
 
 **執行 copy-env 後：**
@@ -267,6 +253,7 @@ API_URL=https://api.staging.com
 API_KEY=my-secret-key
 DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
+MY_CUSTOM_VAR=my-value
 ```
 
 **發生了什麼：**
@@ -274,9 +261,26 @@ NEW_FEATURE_FLAG=true
 - ✅ `API_KEY`: 保留現有的非空值
 - ✅ `DATABASE_URL`: 使用 `.env.example` 中的值更新（原為空）
 - ✅ `NEW_FEATURE_FLAG`: 新增新變數
-- ❌ `OLD_VARIABLE`: 移除（不在 `.env.example` 中）
+- ✅ `MY_CUSTOM_VAR`: **保留**（自訂變數，由 `preserveCustomVars=true` 預設控制）
 
-### 使用 `skipIfExists` 參數
+### 使用 `preserveCustomVars` 控制自訂變數
+
+`preserveCustomVars` 選項（預設值：`true`）控制是否保留自訂環境變數：
+
+**配置：**
+```json
+{
+  "preserveCustomVars": false
+}
+```
+
+**使用 `preserveCustomVars: false` 時：**
+
+使用上面相同的範例，`MY_CUSTOM_VAR` 將被**刪除**，因為它不存在於 `.env.example` 中。
+
+這在您想確保 `.env` 只包含 `.env.example` 中定義的變數時很有用。
+
+### 進階：使用 `skipIfExists` 參數
 
 `skipIfExists` 參數允許選擇性地保留特定的環境變數。這對以下場景特別有用：
 - 只應手動設定的密鑰
@@ -284,6 +288,18 @@ NEW_FEATURE_FLAG=true
 - 需要保留初始狀態的變數（即使為空）
 
 **⚠️ 重要提示**：配置 `skipIfExists` 後，**只有符合模式的變數會被保留**。所有其他變數將從 `.env.example` 更新，即使它們在現有檔案中已有值。
+
+**行為：**
+
+1. **符合 `skipIfExists` 模式的變數**: 如果這些變數已存在於 `.env` 中，將**永遠不會被覆寫**，無論值是否為空
+2. **不符合 `skipIfExists` 模式的變數**: 這些變數將**從 `.env.example` 更新**，即使它們在 `.env` 中已有值
+3. **新變數**: `.env` 中不存在的變數將從 `.env.example` 新增
+4. **自訂變數**: 仍由 `preserveCustomVars` 選項控制（獨立於 `skipIfExists`）
+
+**配置選項：**
+   - 使用字串（正規表示式模式）：`"skipIfExists": "^SECRET_KEY$"`
+   - 使用正規表示式：`"skipIfExists": "/^(SECRET|API)_/"` (JSON 中) 或 `skipIfExists: /^(SECRET|API)_/` (JS 中)
+   - 使用陣列：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` 或混合 RegExp 和字串
 
 **設定 `skipIfExists`：**
 
@@ -343,6 +359,7 @@ API_URL=https://api.staging.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
 DB_HOST=production-db.example.com
+CUSTOM_VAR=my-custom-value
 ```
 
 **使用 `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` 執行 copy-env 後：**
@@ -353,6 +370,7 @@ API_URL=https://api.example.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
 DB_HOST=localhost
+CUSTOM_VAR=my-custom-value
 ```
 
 **發生了什麼：**
@@ -360,6 +378,7 @@ DB_HOST=localhost
 - ✅ `SECRET_KEY`: **保留空值**（符合 `skipIfExists` 模式）
 - ✅ `API_TOKEN`: **保留現有值**（符合 `skipIfExists` 模式）
 - ⚠️ `DB_HOST`: **從 .env.example 更新**（不在 `skipIfExists` 列表中）
+- ✅ `CUSTOM_VAR`: **保留**（使用者自訂變數，不在 `.env.example` 中）
 
 ### 解析規則
 

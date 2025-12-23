@@ -178,6 +178,7 @@ See [examples/js-config-examples](./examples/js-config-examples) for complete wo
 | `type` | `'pnpm' \| 'lerna' \| 'auto'` | `'auto'` | Monorepo type |
 | `packages` | `string[]` | `undefined` | Manually specify package directories (glob patterns supported) |
 | `skipIfExists` | `(string \| RegExp)[] \| RegExp \| string` | `undefined` | Environment variables that should be skipped if they already exist in target .env. If target env already has these variables, they will not be overwritten (preserves existing values regardless of whether they're empty). Can be a string (regex pattern), RegExp, or array of both |
+| `preserveCustomVars` | `boolean` | `true` | Whether to preserve custom environment variables that exist in target .env but not in .env.example. When set to `false`, custom variables will be removed |
 
 ### Path Resolution
 
@@ -217,28 +218,13 @@ Check out the [examples](./examples) directory for complete working examples.
 
 When copying environment files, copy-env intelligently merges values from both `.env.example` and existing `.env.local`:
 
-### Merge Rules
-
-#### Default Behavior (without `skipIfExists`)
+### Basic Merge Rules
 
 1. **New Variables**: Variables that only exist in `.env.example` will be added to `.env.local`
 2. **Existing Variables**: Variables that exist in both files:
    - If the value in `.env.local` is **non-empty**, the existing value is **preserved**
    - If the value in `.env.local` is **empty**, it will be updated with the value from `.env.example`
-3. **Removed Variables**: Variables that only exist in `.env.local` but not in `.env.example` will be **removed**
-
-#### With `skipIfExists` Configuration
-
-When `skipIfExists` is configured, the merge behavior changes:
-
-1. **Variables matching `skipIfExists` patterns**: These variables will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
-2. **Variables NOT matching `skipIfExists` patterns**: These variables will be **updated from `.env.example**, even if they have existing values in `.env.local`
-3. **New Variables**: Variables that don't exist in `.env.local` will be added from `.env.example`
-
-**Configuration options:**
-   - Use `skipIfExists` with string (regex pattern): `"skipIfExists": "^SECRET_KEY$"`
-   - Use `skipIfExists` with RegExp: `"skipIfExists": "/^(SECRET|API)_/"` (in JSON) or `skipIfExists: /^(SECRET|API)_/` (in JS)
-   - Use `skipIfExists` with array: `"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` or mix RegExp and string
+3. **Custom Variables**: Variables that only exist in `.env.local` but not in `.env.example` will be **preserved by default** (controlled by `preserveCustomVars` option)
 
 ### Example
 
@@ -257,7 +243,7 @@ NEW_FEATURE_FLAG=true
 API_URL=https://api.staging.com
 API_KEY=my-secret-key
 DATABASE_URL=
-OLD_VARIABLE=some-value
+MY_CUSTOM_VAR=my-value
 ```
 
 **After running copy-env:**
@@ -268,6 +254,7 @@ API_URL=https://api.staging.com
 API_KEY=my-secret-key
 DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
+MY_CUSTOM_VAR=my-value
 ```
 
 **What happened:**
@@ -275,9 +262,26 @@ NEW_FEATURE_FLAG=true
 - ✅ `API_KEY`: Kept existing non-empty value
 - ✅ `DATABASE_URL`: Updated with value from `.env.example` (was empty)
 - ✅ `NEW_FEATURE_FLAG`: Added new variable
-- ❌ `OLD_VARIABLE`: Removed (not in `.env.example`)
+- ✅ `MY_CUSTOM_VAR`: **Preserved** (custom variable, controlled by `preserveCustomVars=true` by default)
 
-### Using the `skipIfExists` Parameter
+### Controlling Custom Variables with `preserveCustomVars`
+
+The `preserveCustomVars` option (default: `true`) controls whether custom environment variables should be preserved:
+
+**Configuration:**
+```json
+{
+  "preserveCustomVars": false
+}
+```
+
+**With `preserveCustomVars: false`:**
+
+Using the same example above, `MY_CUSTOM_VAR` would be **removed** from the output because it doesn't exist in `.env.example`.
+
+This is useful when you want to ensure `.env.local` only contains variables defined in `.env.example`.
+
+### Advanced: Using the `skipIfExists` Parameter
 
 The `skipIfExists` parameter allows selective preservation of specific environment variables. This is particularly useful for:
 - Secret keys that should only be set manually
@@ -285,6 +289,18 @@ The `skipIfExists` parameter allows selective preservation of specific environme
 - Variables that need to preserve their initial state (even if empty)
 
 **⚠️ Important**: When `skipIfExists` is configured, **only variables matching the patterns are preserved**. All other variables will be updated from `.env.example`, even if they have existing values.
+
+**Behavior:**
+
+1. **Variables matching `skipIfExists` patterns**: These variables will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
+2. **Variables NOT matching `skipIfExists` patterns**: These variables will be **updated from `.env.example`**, even if they have existing values in `.env.local`
+3. **New Variables**: Variables that don't exist in `.env.local` will be added from `.env.example`
+4. **Custom Variables**: Still controlled by `preserveCustomVars` option (independent from `skipIfExists`)
+
+**Configuration options:**
+   - Use `skipIfExists` with string (regex pattern): `"skipIfExists": "^SECRET_KEY$"`
+   - Use `skipIfExists` with RegExp: `"skipIfExists": "/^(SECRET|API)_/"` (in JSON) or `skipIfExists: /^(SECRET|API)_/` (in JS)
+   - Use `skipIfExists` with array: `"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` or mix RegExp and string
 
 **Configuration with `skipIfExists`:**
 

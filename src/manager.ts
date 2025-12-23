@@ -15,6 +15,7 @@ export class CopyEnvManager {
   private envExampleName: string;
   private envName: string;
   private skipPatterns: RegExp[];
+  private preserveCustomVars: boolean;
 
   constructor(config: CopyEnvConfig = {}) {
     this.workspaceRoot = config.workspaceRoot || process.cwd();
@@ -22,6 +23,7 @@ export class CopyEnvManager {
     this.envExampleName = config.envExampleName || ENV_EXAMPLE_FILENAME;
     this.envName = config.envName || ENV_TARGET_FILENAME;
     this.skipPatterns = this.normalizeSkipPatterns(config.skipIfExists);
+    this.preserveCustomVars = config.preserveCustomVars ?? true;
   }
 
   /**
@@ -81,27 +83,37 @@ export class CopyEnvManager {
       return;
     }
 
-    const exampleEnvMap = this.readByLine(envExamplePath);
-    const targetEnvMap = this.readByLine(targetEnvPath);
+    const targetEnvMap = this.readByLine(envExamplePath);
+    const oldTargetEnvMap = this.readByLine(targetEnvPath);
 
     // Merge existing env values based on skipIfExists configuration
     if (this.skipPatterns.length === 0) {
       // No skip patterns - preserve all existing values (default behavior)
-      for (const [k, v] of targetEnvMap.entries()) {
-        if (exampleEnvMap.has(k) && v) {
-          exampleEnvMap.set(k, v);
+      for (const [k, v] of oldTargetEnvMap.entries()) {
+        if (targetEnvMap.has(k) && v) {
+          targetEnvMap.set(k, v);
         }
       }
-    } else {
+    }
+    else {
       // Has skip patterns - only preserve values matching the patterns
-      for (const k of exampleEnvMap.keys()) {
-        if (this.shouldSkipIfExists(k) && targetEnvMap.has(k)) {
-          exampleEnvMap.set(k, targetEnvMap.get(k)!);
+      for (const k of targetEnvMap.keys()) {
+        if (this.shouldSkipIfExists(k) && oldTargetEnvMap.has(k)) {
+          targetEnvMap.set(k, oldTargetEnvMap.get(k)!);
         }
       }
     }
 
-    const envStr = Array.from(exampleEnvMap.entries())
+    // Preserve custom env variables not in .env.example (if enabled)
+    if (this.preserveCustomVars) {
+      for (const [k, v] of oldTargetEnvMap.entries()) {
+        if (!targetEnvMap.has(k)) {
+          targetEnvMap.set(k, v);
+        }
+      }
+    }
+
+    const envStr = Array.from(targetEnvMap.entries())
       .map(([k, v]) => `${k}=${v}`)
       .join('\n');
 
@@ -113,7 +125,7 @@ export class CopyEnvManager {
 
     fs.writeFileSync(targetEnvPath, envStr);
     console.log(
-      `✓ Successfully copied \x1B[32m${exampleEnvMap.size}\x1B[0m envs: ${pkgPath}`,
+      `✓ Successfully copied \x1B[32m${targetEnvMap.size}\x1B[0m envs: ${pkgPath}`,
     );
   }
 

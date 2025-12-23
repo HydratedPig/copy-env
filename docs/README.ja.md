@@ -216,17 +216,70 @@ module.exports = {
 
 環境ファイルをコピーする際、copy-env は `.env.example` と既存の `.env` の値をインテリジェントにマージします：
 
-### マージルール
-
-#### デフォルトの動作（`skipIfExists` 未設定）
+### 基本的なマージルール
 
 1. **新しい変数**: `.env.example` にのみ存在する変数は `.env` に追加されます
 2. **既存の変数**: 両方のファイルに存在する変数：
    - `.env` の値が**空でない**場合、既存の値が**保持**されます
    - `.env` の値が**空**の場合、`.env.example` の値で更新されます
-3. **削除された変数**: `.env` にのみ存在し `.env.example` にない変数は**削除**されます
+3. **カスタム変数**: `.env` にのみ存在し `.env.example` にない変数は**デフォルトで保持**されます（`preserveCustomVars` オプションで制御）
 
-#### `skipIfExists` 設定時の動作
+### 例
+
+**処理前：**
+
+`.env.example`:
+```env
+API_URL=https://api.example.com
+API_KEY=
+DATABASE_URL=postgres://localhost:5432/db
+NEW_FEATURE_FLAG=true
+```
+
+`.env`:
+```env
+API_URL=https://api.staging.com
+API_KEY=my-secret-key
+DATABASE_URL=
+MY_CUSTOM_VAR=my-value
+```
+
+**copy-env 実行後：**
+
+`.env`:
+```env
+API_URL=https://api.staging.com
+API_KEY=my-secret-key
+DATABASE_URL=postgres://localhost:5432/db
+NEW_FEATURE_FLAG=true
+MY_CUSTOM_VAR=my-value
+```
+
+**何が起こったか：**
+- ✅ `API_URL`: `.env` の既存の値を保持
+- ✅ `API_KEY`: 既存の空でない値を保持
+- ✅ `DATABASE_URL`: `.env.example` の値で更新（空だった）
+- ✅ `NEW_FEATURE_FLAG`: 新しい変数を追加
+- ✅ `MY_CUSTOM_VAR`: **保持**（カスタム変数、`preserveCustomVars=true` がデフォルトで制御）
+
+### `preserveCustomVars` でカスタム変数を制御
+
+`preserveCustomVars` オプション（デフォルト：`true`）は、カスタム環境変数を保持するかどうかを制御します：
+
+**設定：**
+```json
+{
+  "preserveCustomVars": false
+}
+```
+
+**`preserveCustomVars: false` の場合：**
+
+上記と同じ例を使用すると、`MY_CUSTOM_VAR` は `.env.example` に存在しないため**削除**されます。
+
+これは、`.env` が `.env.example` で定義された変数のみを含むようにしたい場合に便利です。
+
+### 高度な使い方：`skipIfExists` パラメータの使用
 
 `skipIfExists` が設定されている場合、マージ動作が変化します：
 

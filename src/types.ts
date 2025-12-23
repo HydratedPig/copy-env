@@ -42,4 +42,11 @@ export interface CopyEnvConfig {
    * @default undefined
    */
   skipIfExists?: (string | RegExp)[] | RegExp | string;
+
+  /**
+   * Whether to preserve custom environment variables that exist in target .env
+   * but not in .env.example
+   * @default true
+   */
+  preserveCustomVars?: boolean;
 }
