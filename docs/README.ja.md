@@ -210,89 +210,7 @@ module.exports = {
 
 ## 例
 
-完全な動作例については [examples](../examples) ディレクトリを参照してください：
-
-### 1. シンプルプロジェクト（非 Monorepo）
-[examples/simple-project](../examples/simple-project)
-
-monorepo 構造のない基本的な単一パッケージプロジェクト。
-
-```bash
-simple-project/
-├── .env.example
-└── package.json
-```
-
-### 2. PNPM Workspace
-[examples/pnpm-monorepo](../examples/pnpm-monorepo)
-
-複数のパッケージを持つ PNPM workspace。
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - 'packages/*'
-```
-
-### 3. Lerna Monorepo
-[examples/lerna-monorepo](../examples/lerna-monorepo)
-
-Yarn workspaces を使用した Lerna workspace。
-
-```json
-// lerna.json
-{
-  "packages": ["packages/*"],
-  "version": "independent"
-}
-```
-
-### 4. カスタムパス設定
-[examples/custom-path-config](../examples/custom-path-config)
-
-共有設定を使用したカスタム環境テンプレートパス。
-
-```json
-// .copy-env.json
-{
-  "envExampleName": "../shared-config/env.template",
-  "envName": ".env.local"
-}
-```
-
-この例のデモンストレーション：
-- **相対パス解決**: 各パッケージは自身のディレクトリから `../shared-config/env.template` を解決
-- **共有テンプレート**: すべてのパッケージが同じ環境テンプレートを使用
-- **柔軟な設定**: 必要に応じて異なるパッケージが異なるテンプレートを使用可能
-
-### 5. JavaScript 設定
-[examples/js-config-examples](../examples/js-config-examples)
-
-動的ランタイム設定のための JavaScript ファイルを使用した高度な設定。
-
-**機能:**
-- ✅ ESM 形式 (`.copy-env.js`, `.copy-env.mjs`)
-- ✅ CommonJS 形式 (`.copy-env.cjs`)
-- ✅ 関数ベースの非同期設定
-- ✅ 環境ベースの動的設定
-- ✅ ランタイムロジックと計算
-
-**例：環境ベースの動的設定**
-```javascript
-// .copy-env.mjs
-export default async function() {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    envExampleName: isProduction
-      ? '.env.production.example'
-      : '.env.example',
-    envName: isProduction
-      ? '.env.production'
-      : '.env.local',
-  };
-}
-```
+完全な動作例については [examples](../examples) ディレクトリを参照してください。
 
 ## 環境変数のマージ
 
@@ -300,15 +218,26 @@ export default async function() {
 
 ### マージルール
 
+#### デフォルトの動作（`skipIfExists` 未設定）
+
 1. **新しい変数**: `.env.example` にのみ存在する変数は `.env` に追加されます
 2. **既存の変数**: 両方のファイルに存在する変数：
    - `.env` の値が**空でない**場合、既存の値が**保持**されます
    - `.env` の値が**空**の場合、`.env.example` の値で更新されます
-3. **��除された変数**: `.env` にのみ存在し `.env.example` にない変数は**削除**されます
-4. **スキップする変数**（`skipIfExists` が設定されている場合）：`skipIfExists` パターンに一致する変数は、`.env` に既に存在する場合、**決して上書きされません**（値が空かどうかに関わらず）
-   - 文字列（正規表現パターン）を使用：`"skipIfExists": "^SECRET_KEY$"`
-   - 正規表現を使用：`"skipIfExists": "/^(SECRET|API)_/"` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JS)
+3. **削除された変数**: `.env` にのみ存在し `.env.example` にない変数は**削除**されます
 
+#### `skipIfExists` 設定時の動作
+
+`skipIfExists` が設定されている場合、マージ動作が変化します：
+
+1. **`skipIfExists` パターンに一致する変数**: これらの変数が `.env` に既に存在する場合、**決して上書きされません**（値が空かどうかに関わらず）
+2. **`skipIfExists` パターンに一致しない変数**: これらの変数は `.env` に値がある場合でも、**`.env.example` から更新されます**
+3. **新しい変数**: `.env` に存在しない変数は `.env.example` から追加されます
+
+**設定オプション：**
+   - 文字列（正規表現パターン）を使用：`"skipIfExists": "^SECRET_KEY$"`
+   - 正規表現を使用：`"skipIfExists": "/^(SECRET|API)_/"` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JS)
+   - 配列を使用：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` または RegExp と文字列の混合
 ### 例
 
 **処理前：**
@@ -335,23 +264,14 @@ OLD_VARIABLE=some-value
 ```env
 API_URL=https://api.staging.com
 API_KEY=my-secret-key
-DATABASE_URL=postgres://localhost:5432/db
-NEW_FEATURE_FLAG=true
-```
-
-**何が起こったか：**
-- ✅ `API_URL`: `.env` の既存の値を保持
-- ✅ `API_KEY`: 既存の空でない値を保持
-- ✅ `DATABASE_URL`: `.env.example` の値で更新（空だった）
-- ✅ `NEW_FEATURE_FLAG`: 新しい変数を追加
-- ❌ `OLD_VARIABLE`: 削除（`.env.example` にない）
-
 ### `skipIfExists` パラメータの使用
 
-`skipIfExists` パラメータは、一度だけ設定され、`.env` で空であっても決して上書きされない環境変数を指定するのに便利です。これは特に以下の場合に有用です：
-- 手動で設定すべき秘密鍵
+`skipIfExists` パラメータは、特定の環境変数を選択的に保持することができます。これは特に以下の場合に有用です：
+- 手動でのみ設定すべき秘密鍵
 - 開発者が個別に設定する API トークン
-- 初期の空の状態を保持すべき変数
+- 初期状態を保持する必要がある変数（空であっても）
+
+**⚠️ 重要**: `skipIfExists` を設定すると、**パターンに一致する変数のみが保持されます**。他のすべての変数は、既存のファイルに値がある場合でも `.env.example` から更新されます。
 
 **`skipIfExists` の設定：**
 
@@ -359,7 +279,7 @@ NEW_FEATURE_FLAG=true
 {
   "envExampleName": ".env.example",
   "envName": ".env.local",
-  "skipIfExists": ["SECRET_KEY", "API_TOKEN"]
+  "skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]
 }
 ```
 
@@ -374,6 +294,27 @@ export default {
 };
 ```
 
+または単一の文字列パターンを使用：
+
+```json
+{
+  "envExampleName": ".env.example",
+  "envName": ".env.local",
+  "skipIfExists": "^SECRET.*"
+}
+```
+
+または配列で複数のパターンを混在：
+
+```javascript
+// .copy-env.js
+export default {
+  envExampleName: '.env.example',
+  envName: '.env.local',
+  skipIfExists: [/^SECRET_/, "^API_TOKEN$", /CONFIG$/]  // RegExp と文字列の混合
+};
+```
+
 **動作例：**
 
 `.env.example`:
@@ -381,6 +322,7 @@ export default {
 API_URL=https://api.example.com
 SECRET_KEY=default-key-do-not-use
 API_TOKEN=your-token-here
+DB_HOST=localhost
 ```
 
 `.env` (処理前):
@@ -388,11 +330,25 @@ API_TOKEN=your-token-here
 API_URL=https://api.staging.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=production-db.example.com
 ```
 
-**`skipIfExists: ["SECRET_KEY", "API_TOKEN"]` で copy-env を実行後：**
+**`skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` で copy-env を実行後：**
 
 `.env` (処理後):
+```env
+API_URL=https://api.example.com
+SECRET_KEY=
+API_TOKEN=my-personal-token
+DB_HOST=localhost
+```
+
+**何が起こったか：**
+- ⚠️ `API_URL`: **.env.example から更新**（`skipIfExists` リストにない、値があっても上書き）
+- ✅ `SECRET_KEY`: **空の値を保持**（`skipIfExists` パターンに一致）
+- ✅ `API_TOKEN`: **既存の値を保持**（`skipIfExists` パターンに一致）
+- ⚠️ `DB_HOST`: **.env.example から更新**（`skipIfExists` リストにない）
+
 ```env
 API_URL=https://api.staging.com
 SECRET_KEY=
@@ -447,65 +403,6 @@ copy-env はスマートな検出と処理ワークフローに従います：
 - 処理された各ディレクトリに対して成功メッセージを表示
 - コピーされた環境変数の総数を表示
 - 処理されたパッケージの総数を報告（monorepos の場合）
-
-## API
-
-### `copyEnvs(workspaceRoot?: string, configPath?: string): Promise<void>`
-
-コードから copy-env をプログラムで実行します。
-
-**パラメータ:**
-
-- `workspaceRoot`（オプション）：ワークスペースルートディレクトリパス。デフォルトは `process.cwd()`
-- `configPath`（オプション）：設定ファイルのパス。デフォルトは自動検出
-
-**例:**
-
-```typescript
-import { copyEnvs } from 'copy-env';
-
-// デフォルト設定を使用（現在のディレクトリ、自動検出設定）
-await copyEnvs();
-
-// ワークスペースルートを指定
-await copyEnvs('/path/to/workspace');
-
-// ワークスペースルートとカスタム設定の両方を指定
-await copyEnvs('/path/to/workspace', 'custom-config.json');
-
-// JavaScript 設定を使用
-await copyEnvs('/path/to/workspace', '.copy-env.js');
-```
-
-### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
-
-設定ファイルを読み取って解析します（JSON と JavaScript 形式をサポート）。
-
-**パラメータ:**
-
-- `workspaceRoot`（オプション）：ワークスペースルートディレクトリパス。デフォルトは `process.cwd()`
-- `configPath`（オプション）：設定ファイルのパス。指定しない場合、優先順位に従って設定ファイルを自動検出
-
-**戻り値:** `Promise<CopyEnvConfig>` - 解析された設定オブジェクト
-
-**例:**
-
-```typescript
-import { readConfig } from 'copy-env';
-
-// 設定ファイルを自動検出（優先順位: .js > .mjs > .cjs > .json）
-const config = await readConfig();
-
-// 設定ファイルを指定
-const config = await readConfig(process.cwd(), '.copy-env.js');
-
-// カスタムスクリプトで使用
-const config = await readConfig();
-console.log('ワークスペースルート:', config.workspaceRoot);
-console.log('パッケージ:', config.packages);
-```
-
-**注意:** JavaScript 設定ファイルは非同期読み込みが必要��す。同期読み取りが必要な場合（JSON のみ）、パッケージから `readConfigSync` をインポート���きます。
 
 ## ライセンス
 

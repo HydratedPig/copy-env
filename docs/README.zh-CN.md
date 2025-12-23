@@ -210,89 +210,7 @@ module.exports = {
 
 ## 示例
 
-查看 [examples](../examples) 目录获取完整的可运行示例：
-
-### 1. 简单项目（非 Monorepo）
-[examples/simple-project](../examples/simple-project)
-
-基本的单包项目，无 monorepo 结构。
-
-```bash
-simple-project/
-├── .env.example
-└── package.json
-```
-
-### 2. PNPM Workspace
-[examples/pnpm-monorepo](../examples/pnpm-monorepo)
-
-包含多个包的 PNPM workspace。
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - 'packages/*'
-```
-
-### 3. Lerna Monorepo
-[examples/lerna-monorepo](../examples/lerna-monorepo)
-
-使用 Yarn workspaces 的 Lerna workspace。
-
-```json
-// lerna.json
-{
-  "packages": ["packages/*"],
-  "version": "independent"
-}
-```
-
-### 4. 自定义路径配置
-[examples/custom-path-config](../examples/custom-path-config)
-
-使用共享配置的自定义环境模板路径。
-
-```json
-// .copy-env.json
-{
-  "envExampleName": "../shared-config/env.template",
-  "envName": ".env.local"
-}
-```
-
-此示例演示：
-- **相对路径解析**: 每个包相对于其自己的目录解析 `../shared-config/env.template`
-- **共享模板**: 所有包使用相同的环境模板
-- **灵活配置**: 不同的包可以使用不同的模板
-
-### 5. JavaScript 配置
-[examples/js-config-examples](../examples/js-config-examples)
-
-使用 JavaScript 文件进行高级配置，实现动态运行时配置。
-
-**特性:**
-- ✅ ESM 格式 (`.copy-env.js`, `.copy-env.mjs`)
-- ✅ CommonJS 格式 (`.copy-env.cjs`)
-- ✅ 函数式异步配置
-- ✅ 基于环境的动态配置
-- ✅ 运行时逻辑和计算
-
-**示例：基于环境的动态配置**
-```javascript
-// .copy-env.mjs
-export default async function() {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    envExampleName: isProduction
-      ? '.env.production.example'
-      : '.env.example',
-    envName: isProduction
-      ? '.env.production'
-      : '.env.local',
-  };
-}
-```
+查看 [examples](../examples) 目录获取完整的可运行示例。
 
 ## 环境变量合并
 
@@ -300,12 +218,23 @@ export default async function() {
 
 ### 合并规则
 
+#### 默认行为（未配置 `skipIfExists`）
+
 1. **新变量**: 仅存在于 `.env.example` 中的变量将被添加到 `.env`
 2. **现有变量**: 同时存在于两个文件中的变量：
    - 如果 `.env` 中的值**非空**，则**保留**现有值
    - 如果 `.env` 中的值**为空**，则使用 `.env.example` 中的值更新
 3. **移除变量**: 仅存在于 `.env` 但不在 `.env.example` 中的变量将被**移除**
-4. **跳过已存在的变量**（配置 `skipIfExists` 时）：匹配 `skipIfExists` 模式的变量，如果已存在于 `.env` 中，**永远不会被覆盖**，无论值是否为空
+
+#### 配置 `skipIfExists` 时的行为
+
+当配置了 `skipIfExists` 时，合并行为会发生变化：
+
+1. **匹配 `skipIfExists` 模式的变量**: 如果这些变量已存在于 `.env` 中，将**永远不会被覆盖**，无论值是否为空
+2. **不匹配 `skipIfExists` 模式的变量**: 这些变量将**从 `.env.example` 更新**，即使它们在 `.env` 中已有值
+3. **新变量**: `.env` 中不存在的变量将从 `.env.example` 添加
+
+**配置选项：**
    - 使用字符串（正则模式）：`"skipIfExists": "^SECRET_KEY$"`
    - 使用正则表达式：`"skipIfExists": "/^(SECRET|API)_/"` (JSON 中) 或 `skipIfExists: /^(SECRET|API)_/` (JS 中)
    - 使用数组：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` 或混合 RegExp 和字符串
@@ -349,10 +278,12 @@ NEW_FEATURE_FLAG=true
 
 ### 使用 `skipIfExists` 参数
 
-`skipIfExists` 参数用于指定只应设置一次且永远不会被覆盖的环境变量,即使它们在 `.env` 中为空。这对以下场景特别有用：
-- 应该手动设置的密钥
+`skipIfExists` 参数允许选择性地保留特定的环境变量。这对以下场景特别有用：
+- 只应手动设置的密钥
 - 开发者单独配置的 API 令牌
-- 应保留初始空状态的变量
+- 需要保留初始状态的变量（即使为空）
+
+**⚠️ 重要提示**：配置 `skipIfExists` 后，**只有匹配模式的变量会被保留**。所有其他变量将从 `.env.example` 更新，即使它们在现有文件中已有值。
 
 **配置 `skipIfExists`：**
 
@@ -403,6 +334,7 @@ export default {
 API_URL=https://api.example.com
 SECRET_KEY=default-key-do-not-use
 API_TOKEN=your-token-here
+DB_HOST=localhost
 ```
 
 `.env` (处理前):
@@ -410,21 +342,24 @@ API_TOKEN=your-token-here
 API_URL=https://api.staging.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=production-db.example.com
 ```
 
 **使用 `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` 运行 copy-env 后：**
 
 `.env` (处理后):
 ```env
-API_URL=https://api.staging.com
+API_URL=https://api.example.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=localhost
 ```
 
 **发生了什么：**
-- ✅ `API_URL`: 从 `.env.example` 更新（不在 `skipIfExists` 列表中，原为空）
-- ✅ `SECRET_KEY`: **保留空值**（在 `skipIfExists` 列表中，存在于目标文件）
-- ✅ `API_TOKEN`: **保留现有值**（在 `skipIfExists` 列表中，存在于目标文件）
+- ⚠️ `API_URL`: **从 .env.example 更新**（不在 `skipIfExists` 列表中，即使有值也会被覆盖）
+- ✅ `SECRET_KEY`: **保留空值**（匹配 `skipIfExists` 模式）
+- ✅ `API_TOKEN`: **保留现有值**（匹配 `skipIfExists` 模式）
+- ⚠️ `DB_HOST`: **从 .env.example 更新**（不在 `skipIfExists` 列表中）
 
 ### 解析规则
 
@@ -469,65 +404,6 @@ copy-env 遵循智能检测和处理工作流：
 - 为每个处理的目录显示成功消息
 - 显示复制的环境变量总数
 - 报告处理的包总数（对于 monorepos）
-
-## API
-
-### `copyEnvs(workspaceRoot?: string, configPath?: string): Promise<void>`
-
-以编程方式从代码运行 copy-env。
-
-**参数:**
-
-- `workspaceRoot`（可选）：工作区根目录路径。默认为 `process.cwd()`
-- `configPath`（可选）：配置文件路径。默认为自动检测
-
-**示例:**
-
-```typescript
-import { copyEnvs } from 'copy-env';
-
-// 使用默认设置（当前目录、自动检测配置）
-await copyEnvs();
-
-// 指定工作区根目录
-await copyEnvs('/path/to/workspace');
-
-// 同时指定工作区根目录和自定义配置
-await copyEnvs('/path/to/workspace', 'custom-config.json');
-
-// 使用 JavaScript 配置
-await copyEnvs('/path/to/workspace', '.copy-env.js');
-```
-
-### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
-
-读取并解析配置文件（支持 JSON 和 JavaScript 格式）。
-
-**参数:**
-
-- `workspaceRoot`（可选）：工作区根目录路径。默认为 `process.cwd()`
-- `configPath`（可选）：配置文件路径。如果未指定，按优先级自动检测配置文件
-
-**返回:** `Promise<CopyEnvConfig>` - 解析后的配置对象
-
-**示例:**
-
-```typescript
-import { readConfig } from 'copy-env';
-
-// 自动检测配置文件（优先级: .js > .mjs > .cjs > .json）
-const config = await readConfig();
-
-// 指定配置文件
-const config = await readConfig(process.cwd(), '.copy-env.js');
-
-// 在自定义脚本中使用
-const config = await readConfig();
-console.log('工作区根目录:', config.workspaceRoot);
-console.log('包:', config.packages);
-```
-
-**注意:** JavaScript 配置文件需要异步加载。如果您需要同步读取（仅限 JSON），可以从包中导入 `readConfigSync`。
 
 ## 许可证
 

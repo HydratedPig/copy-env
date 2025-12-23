@@ -84,19 +84,18 @@ export class CopyEnvManager {
     const exampleEnvMap = this.readByLine(envExamplePath);
     const targetEnvMap = this.readByLine(targetEnvPath);
 
-    // Merge existing env values
-    for (const [k, v] of targetEnvMap.entries()) {
-      if (exampleEnvMap.has(k) && v) {
-        exampleEnvMap.set(k, v);
+    // Merge existing env values based on skipIfExists configuration
+    if (this.skipPatterns.length === 0) {
+      // No skip patterns - preserve all existing values (default behavior)
+      for (const [k, v] of targetEnvMap.entries()) {
+        if (exampleEnvMap.has(k) && v) {
+          exampleEnvMap.set(k, v);
+        }
       }
-    }
-
-    // Handle 'skipIfExists' configuration
-    // If a key matches skipIfExists pattern and exists in target env, don't copy it
-    if (this.skipPatterns.length > 0) {
+    } else {
+      // Has skip patterns - only preserve values matching the patterns
       for (const k of exampleEnvMap.keys()) {
         if (this.shouldSkipIfExists(k) && targetEnvMap.has(k)) {
-          // Skip copying this key, keep the target value
           exampleEnvMap.set(k, targetEnvMap.get(k)!);
         }
       }

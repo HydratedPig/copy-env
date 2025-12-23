@@ -211,89 +211,7 @@ This resolves to `<workspace-root>/config/common.env` for all packages.
 
 ## Examples
 
-Check out the [examples](./examples) directory for complete working examples:
-
-### 1. Simple Project (Non-Monorepo)
-[examples/simple-project](./examples/simple-project)
-
-A basic single-package project without monorepo structure.
-
-```bash
-simple-project/
-├── .env.example
-└── package.json
-```
-
-### 2. PNPM Workspace
-[examples/pnpm-monorepo](./examples/pnpm-monorepo)
-
-PNPM workspace with multiple packages.
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - 'packages/*'
-```
-
-### 3. Lerna Monorepo
-[examples/lerna-monorepo](./examples/lerna-monorepo)
-
-Lerna workspace using Yarn workspaces.
-
-```json
-// lerna.json
-{
-  "packages": ["packages/*"],
-  "version": "independent"
-}
-```
-
-### 4. Custom Path Configuration
-[examples/custom-path-config](./examples/custom-path-config)
-
-Using custom paths for environment templates with shared configuration.
-
-```json
-// .copy-env.json
-{
-  "envExampleName": "../shared-config/env.template",
-  "envName": ".env.local"
-}
-```
-
-This example demonstrates:
-- **Relative path resolution**: Each package resolves `../shared-config/env.template` relative to its own directory
-- **Shared templates**: All packages use the same environment template
-- **Flexible configuration**: Different packages can use different templates if needed
-
-### 5. JavaScript Configuration
-[examples/js-config-examples](./examples/js-config-examples)
-
-Advanced configuration using JavaScript files for dynamic runtime configuration.
-
-**Features:**
-- ✅ ESM format (`.copy-env.js`, `.copy-env.mjs`)
-- ✅ CommonJS format (`.copy-env.cjs`)
-- ✅ Function-based async configuration
-- ✅ Environment-based dynamic configs
-- ✅ Runtime logic and calculations
-
-**Example: Dynamic environment-based config**
-```javascript
-// .copy-env.mjs
-export default async function() {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    envExampleName: isProduction
-      ? '.env.production.example'
-      : '.env.example',
-    envName: isProduction
-      ? '.env.production'
-      : '.env.local',
-  };
-}
-```
+Check out the [examples](./examples) directory for complete working examples.
 
 ## Environment Variable Merging
 
@@ -301,12 +219,23 @@ When copying environment files, copy-env intelligently merges values from both `
 
 ### Merge Rules
 
+#### Default Behavior (without `skipIfExists`)
+
 1. **New Variables**: Variables that only exist in `.env.example` will be added to `.env.local`
 2. **Existing Variables**: Variables that exist in both files:
    - If the value in `.env.local` is **non-empty**, the existing value is **preserved**
    - If the value in `.env.local` is **empty**, it will be updated with the value from `.env.example`
 3. **Removed Variables**: Variables that only exist in `.env.local` but not in `.env.example` will be **removed**
-4. **Skip-If-Exists Variables** (when `skipIfExists` is configured): Variables matching the `skipIfExists` pattern will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
+
+#### With `skipIfExists` Configuration
+
+When `skipIfExists` is configured, the merge behavior changes:
+
+1. **Variables matching `skipIfExists` patterns**: These variables will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
+2. **Variables NOT matching `skipIfExists` patterns**: These variables will be **updated from `.env.example**, even if they have existing values in `.env.local`
+3. **New Variables**: Variables that don't exist in `.env.local` will be added from `.env.example`
+
+**Configuration options:**
    - Use `skipIfExists` with string (regex pattern): `"skipIfExists": "^SECRET_KEY$"`
    - Use `skipIfExists` with RegExp: `"skipIfExists": "/^(SECRET|API)_/"` (in JSON) or `skipIfExists: /^(SECRET|API)_/` (in JS)
    - Use `skipIfExists` with array: `"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` or mix RegExp and string
@@ -350,10 +279,12 @@ NEW_FEATURE_FLAG=true
 
 ### Using the `skipIfExists` Parameter
 
-The `skipIfExists` parameter is useful for environment variables that should only be set once and never overwritten, even if they're empty in `.env.local`. This is particularly useful for:
-- Secret keys that should be manually set
-- API tokens that developers configure individually
-- Variables that should preserve their initial empty state
+The `skipIfExists` parameter allows selective preservation of specific environment variables. This is particularly useful for:
+- Secret keys that should only be set manually
+- API tokens configured individually by developers
+- Variables that need to preserve their initial state (even if empty)
+
+**⚠️ Important**: When `skipIfExists` is configured, **only variables matching the patterns are preserved**. All other variables will be updated from `.env.example`, even if they have existing values.
 
 **Configuration with `skipIfExists`:**
 
@@ -404,6 +335,7 @@ export default {
 API_URL=https://api.example.com
 SECRET_KEY=default-key-do-not-use
 API_TOKEN=your-token-here
+DB_HOST=localhost
 ```
 
 `.env.local` (before):
@@ -411,21 +343,24 @@ API_TOKEN=your-token-here
 API_URL=https://api.staging.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=production-db.example.com
 ```
 
 **After running copy-env with `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]`:**
 
 `.env.local` (after):
 ```env
-API_URL=https://api.staging.com
+API_URL=https://api.example.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=localhost
 ```
 
 **What happened:**
-- ✅ `API_URL`: Updated from `.env.example` (not in `skipIfExists` list, was empty)
-- ✅ `SECRET_KEY`: **Preserved empty value** (in `skipIfExists` list, exists in target)
-- ✅ `API_TOKEN`: **Kept existing value** (in `skipIfExists` list, exists in target)
+- ⚠️ `API_URL`: **Updated from .env.example** (not in `skipIfExists` list, so overwritten even though it had a value)
+- ✅ `SECRET_KEY`: **Preserved empty value** (matches `skipIfExists` pattern)
+- ✅ `API_TOKEN`: **Kept existing value** (matches `skipIfExists` pattern)
+- ⚠️ `DB_HOST`: **Updated from .env.example** (not in `skipIfExists` list, so overwritten)
 
 ### Parsing Rules
 
@@ -470,65 +405,6 @@ For each target directory (package or root):
 - Displays success message for each processed directory
 - Shows total count of environment variables copied
 - Reports total number of packages processed (for monorepos)
-
-## API
-
-### `copyEnvs(workspaceRoot?: string, configPath?: string): Promise<void>`
-
-Programmatically run copy-env from your code.
-
-**Parameters:**
-
-- `workspaceRoot` (optional): The workspace root directory path. Defaults to `process.cwd()`
-- `configPath` (optional): Path to the configuration file. Defaults to auto-detection
-
-**Example:**
-
-```typescript
-import { copyEnvs } from 'copy-env';
-
-// Use default settings (current directory, auto-detect config)
-await copyEnvs();
-
-// Specify workspace root
-await copyEnvs('/path/to/workspace');
-
-// Specify both workspace root and custom config
-await copyEnvs('/path/to/workspace', 'custom-config.json');
-
-// Use JavaScript config
-await copyEnvs('/path/to/workspace', '.copy-env.js');
-```
-
-### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
-
-Read and parse the configuration file (supports both JSON and JavaScript formats).
-
-**Parameters:**
-
-- `workspaceRoot` (optional): The workspace root directory path. Defaults to `process.cwd()`
-- `configPath` (optional): Path to the configuration file. If not specified, auto-detects config file by priority
-
-**Returns:** `Promise<CopyEnvConfig>` - The parsed configuration object
-
-**Example:**
-
-```typescript
-import { readConfig } from 'copy-env';
-
-// Auto-detect config file (priority: .js > .mjs > .cjs > .json)
-const config = await readConfig();
-
-// Specify config file
-const config = await readConfig(process.cwd(), '.copy-env.js');
-
-// Use in custom scripts
-const config = await readConfig();
-console.log('Workspace root:', config.workspaceRoot);
-console.log('Packages:', config.packages);
-```
-
-**Note:** JavaScript configuration files require async loading. If you need synchronous reading (JSON only), you can import `readConfigSync` from the package.
 
 ## License
 

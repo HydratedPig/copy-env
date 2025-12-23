@@ -210,89 +210,7 @@ module.exports = {
 
 ## 範例
 
-查看 [examples](../examples) 目錄獲取完整的可執行範例：
-
-### 1. 簡單專案（非 Monorepo）
-[examples/simple-project](../examples/simple-project)
-
-基本的單套件專案，無 monorepo 結構。
-
-```bash
-simple-project/
-├── .env.example
-└── package.json
-```
-
-### 2. PNPM Workspace
-[examples/pnpm-monorepo](../examples/pnpm-monorepo)
-
-包含多個套件的 PNPM workspace。
-
-```yaml
-# pnpm-workspace.yaml
-packages:
-  - 'packages/*'
-```
-
-### 3. Lerna Monorepo
-[examples/lerna-monorepo](../examples/lerna-monorepo)
-
-使用 Yarn workspaces 的 Lerna workspace。
-
-```json
-// lerna.json
-{
-  "packages": ["packages/*"],
-  "version": "independent"
-}
-```
-
-### 4. 自訂路徑配置
-[examples/custom-path-config](../examples/custom-path-config)
-
-使用共用配置的自訂環境範本路徑。
-
-```json
-// .copy-env.json
-{
-  "envExampleName": "../shared-config/env.template",
-  "envName": ".env.local"
-}
-```
-
-此範例演示：
-- **相對路徑解析**: 每個套件相對於其自己的目錄解析 `../shared-config/env.template`
-- **共用範本**: 所有套件使用相同的環境範本
-- **靈活配置**: 不同的套件可以使用不同的範本
-
-### 5. JavaScript 配置
-[examples/js-config-examples](../examples/js-config-examples)
-
-使用 JavaScript 檔案進行進階配置，實現動態執行期配置。
-
-**特性:**
-- ✅ ESM 格式 (`.copy-env.js`, `.copy-env.mjs`)
-- ✅ CommonJS 格式 (`.copy-env.cjs`)
-- ✅ 函數式非同步配置
-- ✅ 基於環境的動態配置
-- ✅ 執行期邏輯和計算
-
-**範例：基於環境的動態配置**
-```javascript
-// .copy-env.mjs
-export default async function() {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  return {
-    envExampleName: isProduction
-      ? '.env.production.example'
-      : '.env.example',
-    envName: isProduction
-      ? '.env.production'
-      : '.env.local',
-  };
-}
-```
+查看 [examples](../examples) 目錄獲取完整的可執行範例。
 
 ## 環境變數合併
 
@@ -300,12 +218,23 @@ export default async function() {
 
 ### 合併規則
 
+#### 預設行為（未配置 `skipIfExists`）
+
 1. **新變數**: 僅存在於 `.env.example` 中的變數將被新增到 `.env`
 2. **現有變數**: 同時存在於兩個檔案中的變數：
    - 如果 `.env` 中的值**非空**，則**保留**現有值
    - 如果 `.env` 中的值**為空**，則使用 `.env.example` 中的值更新
 3. **移除變數**: 僅存在於 `.env` 但不在 `.env.example` 中的變數將被**移除**
-4. **跳過已存在的變數**（設定 `skipIfExists` 時）：符合 `skipIfExists` 模式的變數，如果已存在於 `.env` 中，**永遠不會被覆寫**，無論值是否為空
+
+#### 配置 `skipIfExists` 時的行為
+
+當配置了 `skipIfExists` 時，合併行為會發生變化：
+
+1. **符合 `skipIfExists` 模式的變數**: 如果這些變數已存在於 `.env` 中，將**永遠不會被覆寫**，無論值是否為空
+2. **不符合 `skipIfExists` 模式的變數**: 這些變數將**從 `.env.example` 更新**，即使它們在 `.env` 中已有值
+3. **新變數**: `.env` 中不存在的變數將從 `.env.example` 新增
+
+**配置選項：**
    - 使用字串（正規表示式模式）：`"skipIfExists": "^SECRET_KEY$"`
    - 使用正規表示式：`"skipIfExists": "/^(SECRET|API)_/"` (JSON 中) 或 `skipIfExists: /^(SECRET|API)_/` (JS 中)
    - 使用陣列：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` 或混合 RegExp 和字串
@@ -349,10 +278,12 @@ NEW_FEATURE_FLAG=true
 
 ### 使用 `skipIfExists` 參數
 
-`skipIfExists` 參數用於指定只應設定一次且永遠不會被覆寫的環境變數，即使它們在 `.env` 中為空。這對以下場景特別有用：
-- 應該手動設定的密鑰
-- 開發者單獨設定的 API 令牌
-- 應保留初始空狀態的變數
+`skipIfExists` 參數允許選擇性地保留特定的環境變數。這對以下場景特別有用：
+- 只應手動設定的密鑰
+- 開發者單獨配置的 API 令牌
+- 需要保留初始狀態的變數（即使為空）
+
+**⚠️ 重要提示**：配置 `skipIfExists` 後，**只有符合模式的變數會被保留**。所有其他變數將從 `.env.example` 更新，即使它們在現有檔案中已有值。
 
 **設定 `skipIfExists`：**
 
@@ -403,6 +334,7 @@ export default {
 API_URL=https://api.example.com
 SECRET_KEY=default-key-do-not-use
 API_TOKEN=your-token-here
+DB_HOST=localhost
 ```
 
 `.env` (處理前):
@@ -410,21 +342,24 @@ API_TOKEN=your-token-here
 API_URL=https://api.staging.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=production-db.example.com
 ```
 
 **使用 `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` 執行 copy-env 後：**
 
 `.env` (處理後):
 ```env
-API_URL=https://api.staging.com
+API_URL=https://api.example.com
 SECRET_KEY=
 API_TOKEN=my-personal-token
+DB_HOST=localhost
 ```
 
 **發生了什麼：**
-- ✅ `API_URL`: 從 `.env.example` 更新（不在 `skipIfExists` 列表中，原為空）
-- ✅ `SECRET_KEY`: **保留空值**（在 `skipIfExists` 列表中，存在於目標檔案）
-- ✅ `API_TOKEN`: **保留現有值**（在 `skipIfExists` 列表中，存在於目標檔案）
+- ⚠️ `API_URL`: **從 .env.example 更新**（不在 `skipIfExists` 列表中，即使有值也會被覆寫）
+- ✅ `SECRET_KEY`: **保留空值**（符合 `skipIfExists` 模式）
+- ✅ `API_TOKEN`: **保留現有值**（符合 `skipIfExists` 模式）
+- ⚠️ `DB_HOST`: **從 .env.example 更新**（不在 `skipIfExists` 列表中）
 
 ### 解析規則
 
@@ -469,65 +404,6 @@ copy-env 遵循智慧檢測和處理工作流程：
 - 為每個處理的目錄顯示成功訊息
 - 顯示複製的環境變數總數
 - 報告處理的套件總數（對於 monorepos）
-
-## API
-
-### `copyEnvs(workspaceRoot?: string, configPath?: string): Promise<void>`
-
-以程式方式從程式碼執行 copy-env。
-
-**參數:**
-
-- `workspaceRoot`（可選）：工作區根目錄路徑。預設為 `process.cwd()`
-- `configPath`（可選）：配置檔案路徑。預設為自動檢測
-
-**範例:**
-
-```typescript
-import { copyEnvs } from 'copy-env';
-
-// 使用預設設定（目前目錄、自動檢測配置）
-await copyEnvs();
-
-// 指定工作區根目錄
-await copyEnvs('/path/to/workspace');
-
-// 同時指定工作區根目錄和自訂配置
-await copyEnvs('/path/to/workspace', 'custom-config.json');
-
-// 使用 JavaScript 配置
-await copyEnvs('/path/to/workspace', '.copy-env.js');
-```
-
-### `readConfig(workspaceRoot?: string, configPath?: string): Promise<CopyEnvConfig>`
-
-讀取並解析配置檔案（支援 JSON 和 JavaScript 格式）。
-
-**參數:**
-
-- `workspaceRoot`（可選）：工作區根目錄路徑。預設為 `process.cwd()`
-- `configPath`（可選）：配置檔案路徑。如果未指定，按優先順序自動檢測配置檔案
-
-**回傳:** `Promise<CopyEnvConfig>` - 解析後的配置物件
-
-**範例:**
-
-```typescript
-import { readConfig } from 'copy-env';
-
-// 自動檢測配置檔案（優先順序: .js > .mjs > .cjs > .json）
-const config = await readConfig();
-
-// 指定配置檔案
-const config = await readConfig(process.cwd(), '.copy-env.js');
-
-// 在自訂腳本中使用
-const config = await readConfig();
-console.log('工作區根目錄:', config.workspaceRoot);
-console.log('套件:', config.packages);
-```
-
-**注意:** JavaScript 配置檔案需要非同步載入。如果您需要同步讀取（僅限 JSON），可以從套件中匯入 `readConfigSync`。
 
 ## 授權
 

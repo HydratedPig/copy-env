@@ -109,9 +109,13 @@ describe('manager.ts', () => {
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // Existing values should be preserved
       expect(envContent).toContain('API_KEY=my-real-production-key');
       expect(envContent).toContain('DB_URL=prod-db-url');
+      // New values from .env.example should be added
       expect(envContent).toContain('SECRET_TOKEN=example-token');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should skip lines with comments', async () => {
@@ -139,8 +143,10 @@ describe('manager.ts', () => {
         path.join(envFilesDir, '.env.skip-pattern'),
         path.join(tempDir, '.env.example'),
       );
-      // Only include the key that should be skipped
-      fs.writeFileSync(path.join(tempDir, '.env'), 'API_KEY=prod-key');
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
+        path.join(tempDir, '.env'),
+      );
 
       const manager = new CopyEnvManager({
         workspaceRoot: tempDir,
@@ -150,9 +156,14 @@ describe('manager.ts', () => {
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('API_KEY=prod-key'); // Preserved
-      expect(envContent).toContain('SECRET_TOKEN=new-token'); // New
-      expect(envContent).toContain('PORT=3000'); // New
+      // API_KEY should be preserved from existing .env
+      expect(envContent).toContain('API_KEY=prod-key');
+      // All other values should be updated from .env.example
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should skip RegExp pattern when value exists', async () => {
@@ -160,10 +171,9 @@ describe('manager.ts', () => {
         path.join(envFilesDir, '.env.skip-pattern'),
         path.join(tempDir, '.env.example'),
       );
-      // Only include keys matching the pattern
-      fs.writeFileSync(
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
         path.join(tempDir, '.env'),
-        'SECRET_TOKEN=prod-token\nSECRET_KEY=prod-key',
       );
 
       const manager = new CopyEnvManager({
@@ -174,10 +184,14 @@ describe('manager.ts', () => {
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('SECRET_TOKEN=prod-token'); // Preserved
-      expect(envContent).toContain('SECRET_KEY=prod-key'); // Preserved
-      expect(envContent).toContain('API_KEY=new-key'); // New
-      expect(envContent).toContain('PORT=3000'); // New
+      // Keys matching /^SECRET_/ should be preserved
+      expect(envContent).toContain('SECRET_TOKEN=prod-token');
+      expect(envContent).toContain('SECRET_KEY=prod-secret');
+      // Other values should be updated from .env.example
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should skip array of string patterns', async () => {
@@ -185,22 +199,27 @@ describe('manager.ts', () => {
         path.join(envFilesDir, '.env.skip-pattern'),
         path.join(tempDir, '.env.example'),
       );
-      fs.writeFileSync(
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
         path.join(tempDir, '.env'),
-        'API_KEY=prod-key\nDB_PASSWORD=prod-password',
       );
 
       const manager = new CopyEnvManager({
         workspaceRoot: tempDir,
         envName: '.env',
-        skipIfExists: ['API_KEY', 'DB_PASSWORD'],
+        skipIfExists: ['API_KEY', 'PORT'],
       });
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('API_KEY=prod-key'); // Preserved
-      expect(envContent).toContain('DB_PASSWORD=prod-password'); // Preserved
-      expect(envContent).toContain('SECRET_KEY=new-secret'); // New
+      // API_KEY and PORT should be preserved
+      expect(envContent).toContain('API_KEY=prod-key');
+      expect(envContent).toContain('PORT=3001');
+      // Other values should be updated from .env.example
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should skip array of RegExp patterns', async () => {
@@ -208,22 +227,27 @@ describe('manager.ts', () => {
         path.join(envFilesDir, '.env.skip-pattern'),
         path.join(tempDir, '.env.example'),
       );
-      fs.writeFileSync(
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
         path.join(tempDir, '.env'),
-        'API_KEY=prod-key\nDB_PASSWORD=prod-password',
       );
 
       const manager = new CopyEnvManager({
         workspaceRoot: tempDir,
         envName: '.env',
-        skipIfExists: [/^API_/, /PASSWORD$/],
+        skipIfExists: [/^SECRET_/, /^PORT$/],
       });
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('API_KEY=prod-key'); // Preserved
-      expect(envContent).toContain('DB_PASSWORD=prod-password'); // Preserved
-      expect(envContent).toContain('SECRET_TOKEN=new-token'); // New
+      // Keys matching patterns should be preserved
+      expect(envContent).toContain('SECRET_TOKEN=prod-token');
+      expect(envContent).toContain('SECRET_KEY=prod-secret');
+      expect(envContent).toContain('PORT=3001');
+      // Other values should be updated from .env.example
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should skip mixed string and RegExp patterns', async () => {
@@ -231,22 +255,27 @@ describe('manager.ts', () => {
         path.join(envFilesDir, '.env.skip-pattern'),
         path.join(tempDir, '.env.example'),
       );
-      fs.writeFileSync(
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
         path.join(tempDir, '.env'),
-        'API_KEY=prod-key\nSECRET_TOKEN=prod-token',
       );
 
       const manager = new CopyEnvManager({
         workspaceRoot: tempDir,
         envName: '.env',
-        skipIfExists: ['API_KEY', /^SECRET_/],
+        skipIfExists: ['PORT', /^SECRET_/],
       });
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('API_KEY=prod-key'); // Preserved
-      expect(envContent).toContain('SECRET_TOKEN=prod-token'); // Preserved
-      expect(envContent).toContain('DB_PASSWORD=new-password'); // New
+      // Keys matching patterns should be preserved
+      expect(envContent).toContain('PORT=3001');
+      expect(envContent).toContain('SECRET_TOKEN=prod-token');
+      expect(envContent).toContain('SECRET_KEY=prod-secret');
+      // Other values should be updated from .env.example
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('DEBUG=false');
     });
   });
 
@@ -296,7 +325,7 @@ describe('manager.ts', () => {
   });
 
   describe('environment variable parsing', () => {
-    it('should handle values with special characters', async () => {
+    it('should handle values with special characters, equals signs, and quotes', async () => {
       fs.copyFileSync(
         path.join(envFilesDir, '.env.special-chars'),
         path.join(tempDir, '.env.example'),
@@ -309,39 +338,11 @@ describe('manager.ts', () => {
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // Special characters
       expect(envContent).toContain('DB_URL=postgres://user:pass@localhost:5432/db');
+      // Equals signs in values
       expect(envContent).toContain('JWT_SECRET=base64encodedstring==');
-    });
-
-    it('should handle values with equals signs', async () => {
-      fs.copyFileSync(
-        path.join(envFilesDir, '.env.special-chars'),
-        path.join(tempDir, '.env.example'),
-      );
-
-      const manager = new CopyEnvManager({
-        workspaceRoot: tempDir,
-        envName: '.env',
-      });
-      await manager.execute();
-
-      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      expect(envContent).toContain('JWT_SECRET=base64encodedstring==');
-    });
-
-    it('should handle quoted values', async () => {
-      fs.copyFileSync(
-        path.join(envFilesDir, '.env.special-chars'),
-        path.join(tempDir, '.env.example'),
-      );
-
-      const manager = new CopyEnvManager({
-        workspaceRoot: tempDir,
-        envName: '.env',
-      });
-      await manager.execute();
-
-      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // Quoted values
       expect(envContent).toContain('MESSAGE="Hello World"');
       expect(envContent).toContain('PATH=\'/usr/local/bin\'');
     });
@@ -439,12 +440,10 @@ describe('manager.ts', () => {
       });
       await manager.execute();
 
-      // Should create empty file or file with no key-value pairs
-      const envExists = fs.existsSync(path.join(tempDir, '.env'));
-      if (envExists) {
-        const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-        expect(envContent).toBe('');
-      }
+      // File should be created but empty since there are no valid key-value pairs
+      expect(fs.existsSync(path.join(tempDir, '.env'))).toBe(true);
+      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      expect(envContent).toBe('');
     });
 
     it('should handle keys without values', async () => {
