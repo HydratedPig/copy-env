@@ -2,7 +2,7 @@
   "name": "copy-env",
   "type": "module",
   "version": "1.0.0",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.0.0",
   "description": "Automatically copy .env.example to .env in monorepo projects",
   "author": "HydratedPig",
   "license": "MIT",
@@ -53,7 +53,8 @@
     "lint:fix": "eslint src --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "test:install": "./scripts/install-examples.ts"
   },
   "dependencies": {
     "cac": "^6.7.14",
@@ -66,7 +67,9 @@
     "@types/node": "^22.10.2",
     "@vitest/ui": "^4.0.16",
     "eslint": "^9.39.2",
+    "execa": "^9.6.1",
     "rolldown": "^1.0.0-beta.55",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.2",
     "vitest": "^4.0.16"
   },
