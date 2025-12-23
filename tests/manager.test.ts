@@ -92,7 +92,7 @@ describe('manager.ts', () => {
   });
 
   describe('preserving existing values', () => {
-    it('should preserve existing values in target .env', async () => {
+    it('should update with new values from .env.example by default', async () => {
       fs.copyFileSync(
         path.join(envFilesDir, '.env.example'),
         path.join(tempDir, '.env.example'),
@@ -109,10 +109,9 @@ describe('manager.ts', () => {
       await manager.execute();
 
       const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
-      // Existing values should be preserved
-      expect(envContent).toContain('API_KEY=my-real-production-key');
-      expect(envContent).toContain('DB_URL=prod-db-url');
-      // New values from .env.example should be added
+      // Values should be updated from .env.example (not preserved)
+      expect(envContent).toContain('API_KEY=example-api-key');
+      expect(envContent).toContain('DB_URL=localhost:5432');
       expect(envContent).toContain('SECRET_TOKEN=example-token');
       expect(envContent).toContain('PORT=3000');
       expect(envContent).toContain('DEBUG=false');
@@ -156,13 +155,13 @@ describe('manager.ts', () => {
       // Custom env variables should be preserved
       expect(envContent).toContain('CUSTOM_ENV=custom-value');
       expect(envContent).toContain('API_CUSTOM_KEY=custom-api-key');
-      // Existing values in .env.example should be preserved from .env
-      expect(envContent).toContain('API_KEY=prod-key');
-      expect(envContent).toContain('SECRET_TOKEN=prod-token');
-      expect(envContent).toContain('SECRET_KEY=prod-secret');
-      expect(envContent).toContain('DB_PASSWORD=prod-password');
-      expect(envContent).toContain('PORT=3001');
-      expect(envContent).toContain('DEBUG=true');
+      // Values in .env.example should be updated (not preserved from .env)
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should preserve custom env variables not in .env.example (with skipIfExists)', async () => {
@@ -217,13 +216,13 @@ describe('manager.ts', () => {
       // Custom env variables should NOT be preserved
       expect(envContent).not.toContain('CUSTOM_ENV');
       expect(envContent).not.toContain('API_CUSTOM_KEY');
-      // Existing values in .env.example should be preserved from .env
-      expect(envContent).toContain('API_KEY=prod-key');
-      expect(envContent).toContain('SECRET_TOKEN=prod-token');
-      expect(envContent).toContain('SECRET_KEY=prod-secret');
-      expect(envContent).toContain('DB_PASSWORD=prod-password');
-      expect(envContent).toContain('PORT=3001');
-      expect(envContent).toContain('DEBUG=true');
+      // Values in .env.example should be updated (not preserved from .env)
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
     });
 
     it('should not preserve custom env variables with skipIfExists and preserveCustomVars false', async () => {
@@ -256,6 +255,129 @@ describe('manager.ts', () => {
       expect(envContent).toContain('DB_PASSWORD=new-password');
       expect(envContent).toContain('PORT=3000');
       expect(envContent).toContain('DEBUG=false');
+    });
+  });
+
+  describe('default behavior (no skipIfExists)', () => {
+    it('should update all values from .env.example when skipIfExists is not configured', async () => {
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-pattern'),
+        path.join(tempDir, '.env.example'),
+      );
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
+        path.join(tempDir, '.env'),
+      );
+
+      const manager = new CopyEnvManager({
+        workspaceRoot: tempDir,
+        envName: '.env',
+        // No skipIfExists configured - should use new values
+      });
+      await manager.execute();
+
+      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // All values should be updated from .env.example
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
+      // Custom env variables should still be preserved (preserveCustomVars defaults to true)
+      expect(envContent).toContain('CUSTOM_ENV=custom-value');
+      expect(envContent).toContain('API_CUSTOM_KEY=custom-api-key');
+    });
+
+    it('should allow .env.example updates to propagate to .env on subsequent runs', async () => {
+      // First run: Create initial .env from .env.example
+      fs.writeFileSync(
+        path.join(tempDir, '.env.example'),
+        'API_KEY=version1\nDB_URL=localhost',
+      );
+
+      const manager = new CopyEnvManager({
+        workspaceRoot: tempDir,
+        envName: '.env',
+      });
+      await manager.execute();
+
+      let envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      expect(envContent).toContain('API_KEY=version1');
+      expect(envContent).toContain('DB_URL=localhost');
+
+      // Second run: Update .env.example and verify .env gets updated
+      fs.writeFileSync(
+        path.join(tempDir, '.env.example'),
+        'API_KEY=version2\nDB_URL=production',
+      );
+
+      await manager.execute();
+
+      envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // Values should be updated to version2
+      expect(envContent).toContain('API_KEY=version2');
+      expect(envContent).toContain('DB_URL=production');
+    });
+
+    it('should update values but preserve custom vars when preserveCustomVars is true', async () => {
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-pattern'),
+        path.join(tempDir, '.env.example'),
+      );
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
+        path.join(tempDir, '.env'),
+      );
+
+      const manager = new CopyEnvManager({
+        workspaceRoot: tempDir,
+        envName: '.env',
+        preserveCustomVars: true,
+      });
+      await manager.execute();
+
+      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // All values from .env.example should use new values
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
+      // Custom env variables should be preserved
+      expect(envContent).toContain('CUSTOM_ENV=custom-value');
+      expect(envContent).toContain('API_CUSTOM_KEY=custom-api-key');
+    });
+
+    it('should update all values and not preserve custom vars when preserveCustomVars is false', async () => {
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-pattern'),
+        path.join(tempDir, '.env.example'),
+      );
+      fs.copyFileSync(
+        path.join(envFilesDir, '.env.skip-results'),
+        path.join(tempDir, '.env'),
+      );
+
+      const manager = new CopyEnvManager({
+        workspaceRoot: tempDir,
+        envName: '.env',
+        preserveCustomVars: false,
+      });
+      await manager.execute();
+
+      const envContent = fs.readFileSync(path.join(tempDir, '.env'), 'utf-8');
+      // All values from .env.example should use new values
+      expect(envContent).toContain('API_KEY=new-key');
+      expect(envContent).toContain('SECRET_TOKEN=new-token');
+      expect(envContent).toContain('SECRET_KEY=new-secret');
+      expect(envContent).toContain('DB_PASSWORD=new-password');
+      expect(envContent).toContain('PORT=3000');
+      expect(envContent).toContain('DEBUG=false');
+      // Custom env variables should NOT be preserved
+      expect(envContent).not.toContain('CUSTOM_ENV');
+      expect(envContent).not.toContain('API_CUSTOM_KEY');
     });
   });
 

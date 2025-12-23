@@ -221,9 +221,9 @@ When copying environment files, copy-env intelligently merges values from both `
 ### Basic Merge Rules
 
 1. **New Variables**: Variables that only exist in `.env.example` will be added to `.env.local`
-2. **Existing Variables**: Variables that exist in both files:
-   - If the value in `.env.local` is **non-empty**, the existing value is **preserved**
-   - If the value in `.env.local` is **empty**, it will be updated with the value from `.env.example`
+2. **Existing Variables (Default Behavior)**: Variables that exist in both files will be **updated with values from `.env.example`**
+   - This ensures your `.env.local` stays in sync with `.env.example` updates
+   - Use `skipIfExists` option to preserve specific variables (see [Advanced: Using the `skipIfExists` Parameter](#advanced-using-the-skipifexists-parameter))
 3. **Custom Variables**: Variables that only exist in `.env.local` but not in `.env.example` will be **preserved by default** (controlled by `preserveCustomVars` option)
 
 ### Example
@@ -246,21 +246,21 @@ DATABASE_URL=
 MY_CUSTOM_VAR=my-value
 ```
 
-**After running copy-env:**
+**After running copy-env (default behavior):**
 
 `.env.local`:
 ```env
-API_URL=https://api.staging.com
-API_KEY=my-secret-key
+API_URL=https://api.example.com
+API_KEY=
 DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
 MY_CUSTOM_VAR=my-value
 ```
 
 **What happened:**
-- ✅ `API_URL`: Kept existing value from `.env.local`
-- ✅ `API_KEY`: Kept existing non-empty value
-- ✅ `DATABASE_URL`: Updated with value from `.env.example` (was empty)
+- ✅ `API_URL`: **Updated** with value from `.env.example` (default behavior: always use latest values)
+- ✅ `API_KEY`: **Updated** to empty (use `skipIfExists` to preserve secrets - see below)
+- ✅ `DATABASE_URL`: Updated with value from `.env.example`
 - ✅ `NEW_FEATURE_FLAG`: Added new variable
 - ✅ `MY_CUSTOM_VAR`: **Preserved** (custom variable, controlled by `preserveCustomVars=true` by default)
 
@@ -283,18 +283,16 @@ This is useful when you want to ensure `.env.local` only contains variables defi
 
 ### Advanced: Using the `skipIfExists` Parameter
 
-The `skipIfExists` parameter allows selective preservation of specific environment variables. This is particularly useful for:
+By default, copy-env updates all existing variables with values from `.env.example`. The `skipIfExists` parameter allows you to selectively preserve specific environment variables. This is particularly useful for:
 - Secret keys that should only be set manually
 - API tokens configured individually by developers
-- Variables that need to preserve their initial state (even if empty)
-
-**⚠️ Important**: When `skipIfExists` is configured, **only variables matching the patterns are preserved**. All other variables will be updated from `.env.example`, even if they have existing values.
+- Variables that need to preserve their existing state (even if empty)
 
 **Behavior:**
 
-1. **Variables matching `skipIfExists` patterns**: These variables will **never be overwritten** if they already exist in `.env.local`, regardless of whether their values are empty or not
-2. **Variables NOT matching `skipIfExists` patterns**: These variables will be **updated from `.env.example`**, even if they have existing values in `.env.local`
-3. **New Variables**: Variables that don't exist in `.env.local` will be added from `.env.example`
+1. **Without `skipIfExists` (default)**: All variables in `.env.example` will be updated with their latest values, allowing your environment to stay in sync with template changes
+2. **With `skipIfExists`**: Variables matching the specified patterns will be preserved from `.env.local`, while all other variables will be updated from `.env.example`
+3. **New Variables**: Variables that don't exist in `.env.local` will always be added from `.env.example`
 4. **Custom Variables**: Still controlled by `preserveCustomVars` option (independent from `skipIfExists`)
 
 **Configuration options:**

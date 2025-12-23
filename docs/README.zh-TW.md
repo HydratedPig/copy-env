@@ -2,7 +2,7 @@
 
 [English](../README.md) | [中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
-在 monorepo 專案中自動複製 `.env.example` 到 `.env`。
+在 monorepo 專案中自動複製 `.env.example` 到 `.env.local`。
 
 ## 特性
 
@@ -215,15 +215,15 @@ module.exports = {
 
 ## 環境變數合併
 
-複製環境檔案時，copy-env 會智慧地合併 `.env.example` 和現有 `.env` 中的值：
+複製環境檔案時，copy-env 會智慧地合併 `.env.example` 和現有 `.env.local` 中的值：
 
 ### 基本合併規則
 
-1. **新變數**: 僅存在於 `.env.example` 中的變數將被新增到 `.env`
-2. **現有變數**: 同時存在於兩個檔案中的變數：
-   - 如果 `.env` 中的值**非空**，則**保留**現有值
-   - 如果 `.env` 中的值**為空**，則使用 `.env.example` 中的值更新
-3. **自訂變數**: 僅存在於 `.env` 但不在 `.env.example` 中的變數將**預設保留**（由 `preserveCustomVars` 選項控制）
+1. **新變數**: 僅存在於 `.env.example` 中的變數將被新增到 `.env.local`
+2. **現有變數（預設行為）**: 同時存在於兩個檔案中的變數將**使用 `.env.example` 中的值更新**
+   - 這確保您的 `.env.local` 與 `.env.example` 的更新保持同步
+   - 使用 `skipIfExists` 選項來保留特定變數（參見 [進階：使用 `skipIfExists` 參數](#進階使用-skipifexists-參數)）
+3. **自訂變數**: 僅存在於 `.env.local` 但不在 `.env.example` 中的變數將**預設保留**（由 `preserveCustomVars` 選項控制）
 
 ### 範例
 
@@ -237,7 +237,7 @@ DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
 ```
 
-`.env`:
+`.env.local`:
 ```env
 API_URL=https://api.staging.com
 API_KEY=my-secret-key
@@ -245,21 +245,21 @@ DATABASE_URL=
 MY_CUSTOM_VAR=my-value
 ```
 
-**執行 copy-env 後：**
+**執行 copy-env 後（預設行為）：**
 
-`.env`:
+`.env.local`:
 ```env
-API_URL=https://api.staging.com
-API_KEY=my-secret-key
+API_URL=https://api.example.com
+API_KEY=
 DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
 MY_CUSTOM_VAR=my-value
 ```
 
 **發生了什麼：**
-- ✅ `API_URL`: 保留 `.env` 中的現有值
-- ✅ `API_KEY`: 保留現有的非空值
-- ✅ `DATABASE_URL`: 使用 `.env.example` 中的值更新（原為空）
+- ✅ `API_URL`: **已更新**為 `.env.example` 中的值（預設行為：始終使用最新值）
+- ✅ `API_KEY`: **已更新**為空值（使用 `skipIfExists` 保留密鑰 - 見下文）
+- ✅ `DATABASE_URL`: 使用 `.env.example` 中的值更新
 - ✅ `NEW_FEATURE_FLAG`: 新增新變數
 - ✅ `MY_CUSTOM_VAR`: **保留**（自訂變數，由 `preserveCustomVars=true` 預設控制）
 
@@ -278,22 +278,20 @@ MY_CUSTOM_VAR=my-value
 
 使用上面相同的範例，`MY_CUSTOM_VAR` 將被**刪除**，因為它不存在於 `.env.example` 中。
 
-這在您想確保 `.env` 只包含 `.env.example` 中定義的變數時很有用。
+這在您想確保 `.env.local` 只包含 `.env.example` 中定義的變數時很有用。
 
 ### 進階：使用 `skipIfExists` 參數
 
-`skipIfExists` 參數允許選擇性地保留特定的環境變數。這對以下場景特別有用：
+預設情況下，copy-env 會使用 `.env.example` 中的值更新所有現有變數。`skipIfExists` 參數允許您選擇性地保留特定的環境變數。這對以下場景特別有用：
 - 只應手動設定的密鑰
 - 開發者單獨配置的 API 令牌
-- 需要保留初始狀態的變數（即使為空）
-
-**⚠️ 重要提示**：配置 `skipIfExists` 後，**只有符合模式的變數會被保留**。所有其他變數將從 `.env.example` 更新，即使它們在現有檔案中已有值。
+- 需要保留現有狀態的變數（即使為空）
 
 **行為：**
 
-1. **符合 `skipIfExists` 模式的變數**: 如果這些變數已存在於 `.env` 中，將**永遠不會被覆寫**，無論值是否為空
-2. **不符合 `skipIfExists` 模式的變數**: 這些變數將**從 `.env.example` 更新**，即使它們在 `.env` 中已有值
-3. **新變數**: `.env` 中不存在的變數將從 `.env.example` 新增
+1. **不使用 `skipIfExists`（預設）**: `.env.example` 中的所有變數都會使用其最新值更新，使您的環境與範本變更保持同步
+2. **使用 `skipIfExists`**: 符合指定模式的變數將從 `.env` 中保留，而所有其他變數將從 `.env.example` 更新
+3. **新變數**: `.env` 中不存在的變數將始終從 `.env.example` 新增
 4. **自訂變數**: 仍由 `preserveCustomVars` 選項控制（獨立於 `skipIfExists`）
 
 **配置選項：**
@@ -353,7 +351,7 @@ API_TOKEN=your-token-here
 DB_HOST=localhost
 ```
 
-`.env` (處理前):
+`.env.local` (處理前):
 ```env
 API_URL=https://api.staging.com
 SECRET_KEY=
@@ -364,7 +362,7 @@ CUSTOM_VAR=my-custom-value
 
 **使用 `skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` 執行 copy-env 後：**
 
-`.env` (處理後):
+`.env.local` (處理後):
 ```env
 API_URL=https://api.example.com
 SECRET_KEY=
@@ -415,9 +413,9 @@ copy-env 遵循智慧檢測和處理工作流程：
   - 絕對路徑（以 `/` 開頭）從工作區根目錄解析
   - 相對路徑從目前套件目錄解析
 - 讀取並解析 `.env.example` 檔案
-- 讀取並解析現有的 `.env` 檔案（如果存在）
+- 讀取並解析現有的 `.env.local` 檔案（如果存在）
 - 智慧合併值（參見[環境變數合併](#環境變數合併)）
-- 將合併結果寫入 `.env`
+- 將合併結果寫入 `.env.local`
 
 ### 5. 結果
 - 為每個處理的目錄顯示成功訊息

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-12-23
+
+### Fixed
+
+#### Environment Variable Merging Behavior
+- **Fixed `skipIfExists` default behavior**: Changed the default behavior when `skipIfExists` is not configured
+  - **Previous behavior**: All existing values were preserved, preventing updates from `.env.example`
+  - **New behavior**: When `skipIfExists` is not configured, values from `.env.example` are allowed to update existing `.env` values
+  - **With `skipIfExists` configured**: Only preserve existing values that match the specified patterns
+- This fix makes the default behavior more intuitive and aligns with the expected workflow where `.env.example` serves as the source of truth
+- Custom environment variables (not in `.env.example`) are still preserved when `preserveCustomVars` is enabled (default: `true`)
+
+### Changed
+- Simplified the merge logic in `CopyEnvManager.copyEnv()` for better clarity (src/manager.ts:87-101)
+- Improved code comments to better explain the merging behavior
+
+## [1.0.0] - 2025-12-19
+
 ### Added
 
 #### JavaScript Configuration Support
@@ -69,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Configuration Options
 - `workspaceRoot`: Workspace root directory (default: `process.cwd()`)
 - `envExampleName`: Source env file name or path (default: `.env.example`)
-- `envName`: Target env file name or path (default: `.env`)
+- `envName`: Target env file name or path (default: `.env.local`)
 - `type`: Monorepo type - `'pnpm' | 'lerna' | 'auto'` (default: `'auto'`)
 - `packages`: Manually specify package directories with glob pattern support
 
@@ -120,4 +138,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Node.js >= 16.0.0 required (published version)
 - Node.js >= 20.0.0 required (development)
 
+[1.0.1]: https://github.com/HydratedPig/copy-env/releases/tag/v1.0.1
 [1.0.0]: https://github.com/HydratedPig/copy-env/releases/tag/v1.0.0

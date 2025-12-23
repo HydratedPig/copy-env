@@ -3,8 +3,17 @@ name: Publish to npm
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to publish (e.g., 1.0.0)'
+      version_type:
+        description: 版本更新类型
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      custom_version:
+        description: '自定义版本号 (可选，例如: 1.2.3，留空则自动根据类型增加)'
         required: false
   push:
     tags:
@@ -45,21 +54,42 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - name: Get version
-        id: get_version
+      - name: Set version for publish
+        id: set_version
         run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "push" ]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          else
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+              # 使用自定义版本号
+              npm version ${{ github.event.inputs.custom_version }} --no-git-tag-version
+            else
+              # 根据选择的类型自动增加版本
+              npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+            fi
           fi
+
+          # 获取当前版本用于后续步骤
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Publish to npm
         run: pnpm publish --no-git-checks --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Commit version change (workflow_dispatch only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          NEW_VERSION=${{ steps.set_version.outputs.version }}
+
+          git add package.json
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+
+          # 创建并推送 tag
+          git tag "v${NEW_VERSION}"
+          git push origin main
+          git push origin "v${NEW_VERSION}"
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -75,7 +105,22 @@ jobs:
             ## Installation
 
             ```bash
-            npm install @hydrated_pig/copy-env@${{ steps.get_version.outputs.version }}
+            npm install @hydrated_pig/copy-env@${{ steps.set_version.outputs.version }}
             ```
           draft: false
           prerelease: false
+
+      - name: Auto bump patch version after tag release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 自动增加 patch 版本号
+          npm version patch --no-git-tag-version
+
+          NEW_VERSION=$(node -p "require('./package.json').version")
+
+          git add package.json
+          git commit -m "chore: bump version to ${NEW_VERSION} [skip ci]"
+          git push origin main

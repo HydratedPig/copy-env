@@ -2,7 +2,7 @@
 
 [English](../README.md) | [中文](./README.zh-CN.md) | [繁體中文](./README.zh-TW.md)
 
-monorepo プロジェクトで `.env.example` を `.env` に自動的にコピーします。
+monorepo プロジェクトで `.env.example` を `.env.local` に自動的にコピーします。
 
 ## 機能
 
@@ -214,15 +214,15 @@ module.exports = {
 
 ## 環境変数のマージ
 
-環境ファイルをコピーする際、copy-env は `.env.example` と既存の `.env` の値をインテリジェントにマージします：
+環境ファイルをコピーする際、copy-env は `.env.example` と既存の `.env.local` の値をインテリジェントにマージします：
 
 ### 基本的なマージルール
 
-1. **新しい変数**: `.env.example` にのみ存在する変数は `.env` に追加されます
-2. **既存の変数**: 両方のファイルに存在する変数：
-   - `.env` の値が**空でない**場合、既存の値が**保持**されます
-   - `.env` の値が**空**の場合、`.env.example` の値で更新されます
-3. **カスタム変数**: `.env` にのみ存在し `.env.example` にない変数は**デフォルトで保持**されます（`preserveCustomVars` オプションで制御）
+1. **新しい変数**: `.env.example` にのみ存在する変数は `.env.local` に追加されます
+2. **既存の変数（デフォルト動作）**: 両方のファイルに存在する変数は **`.env.example` の値で更新されます**
+   - これにより、`.env.local` が `.env.example` の更新と同期されます
+   - 特定の変数を保持するには `skipIfExists` オプションを使用します（[高度な使い方：`skipIfExists` パラメータの使用](#高度な使い方skipifexists-パラメータの使用) を参照）
+3. **カスタム変数**: `.env.local` にのみ存在し `.env.example` にない変数は**デフォルトで保持**されます（`preserveCustomVars` オプションで制御）
 
 ### 例
 
@@ -236,7 +236,7 @@ DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
 ```
 
-`.env`:
+`.env.local`:
 ```env
 API_URL=https://api.staging.com
 API_KEY=my-secret-key
@@ -244,21 +244,21 @@ DATABASE_URL=
 MY_CUSTOM_VAR=my-value
 ```
 
-**copy-env 実行後：**
+**copy-env 実行後（デフォルト動作）：**
 
-`.env`:
+`.env.local`:
 ```env
-API_URL=https://api.staging.com
-API_KEY=my-secret-key
+API_URL=https://api.example.com
+API_KEY=
 DATABASE_URL=postgres://localhost:5432/db
 NEW_FEATURE_FLAG=true
 MY_CUSTOM_VAR=my-value
 ```
 
 **何が起こったか：**
-- ✅ `API_URL`: `.env` の既存の値を保持
-- ✅ `API_KEY`: 既存の空でない値を保持
-- ✅ `DATABASE_URL`: `.env.example` の値で更新（空だった）
+- ✅ `API_URL`: **更新されました**（デフォルト動作：常に最新の値を使用）
+- ✅ `API_KEY`: **更新されました**（空の値に。シークレットを保持するには `skipIfExists` を使用 - 下記参照）
+- ✅ `DATABASE_URL`: `.env.example` の値で更新
 - ✅ `NEW_FEATURE_FLAG`: 新しい変数を追加
 - ✅ `MY_CUSTOM_VAR`: **保持**（カスタム変数、`preserveCustomVars=true` がデフォルトで制御）
 
@@ -277,54 +277,26 @@ MY_CUSTOM_VAR=my-value
 
 上記と同じ例を使用すると、`MY_CUSTOM_VAR` は `.env.example` に存在しないため**削除**されます。
 
-これは、`.env` が `.env.example` で定義された変数のみを含むようにしたい場合に便利です。
+これは、`.env.local` が `.env.example` で定義された変数のみを含むようにしたい場合に便利です。
 
 ### 高度な使い方：`skipIfExists` パラメータの使用
 
-`skipIfExists` が設定されている場合、マージ動作が変化します：
+デフォルトでは、copy-env は既存の変数をすべて `.env.example` の値で更新します。`skipIfExists` パラメータを使用すると、特定の環境変数を選択的に保持できます。これは以下のような場合に特に便利です：
+- 手動でのみ設定すべきシークレットキー
+- 開発者が個別に設定する API トークン
+- 既存の状態を保持する必要がある変数（空の場合でも）
 
-1. **`skipIfExists` パターンに一致する変数**: これらの変数が `.env` に既に存在する場合、**決して上書きされません**（値が空かどうかに関わらず）
-2. **`skipIfExists` パターンに一致しない変数**: これらの変数は `.env` に値がある場合でも、**`.env.example` から更新されます**
-3. **新しい変数**: `.env` に存在しない変数は `.env.example` から追加されます
+**動作：**
+
+1. **`skipIfExists` なし（デフォルト）**: `.env.example` のすべての変数が最新の値で更新され、環境がテンプレートの変更と同期されます
+2. **`skipIfExists` あり**: 指定されたパターンに一致する変数は `.env.local` から保持され、他のすべての変数は `.env.example` から更新されます
+3. **新しい変数**: `.env.local` に存在しない変数は常に `.env.example` から追加されます
+4. **カスタム変数**: `preserveCustomVars` オプションで制御されます（`skipIfExists` とは独立）
 
 **設定オプション：**
    - 文字列（正規表現パターン）を使用：`"skipIfExists": "^SECRET_KEY$"`
    - 正規表現を使用：`"skipIfExists": "/^(SECRET|API)_/"` (JSON) または `skipIfExists: /^(SECRET|API)_/` (JS)
    - 配列を使用：`"skipIfExists": ["^SECRET_KEY$", "^API_TOKEN$"]` または RegExp と文字列の混合
-### 例
-
-**処理前：**
-
-`.env.example`:
-```env
-API_URL=https://api.example.com
-API_KEY=
-DATABASE_URL=postgres://localhost:5432/db
-NEW_FEATURE_FLAG=true
-```
-
-`.env`:
-```env
-API_URL=https://api.staging.com
-API_KEY=my-secret-key
-DATABASE_URL=
-OLD_VARIABLE=some-value
-```
-
-**copy-env 実行後：**
-
-`.env`:
-```env
-API_URL=https://api.staging.com
-API_KEY=my-secret-key
-### `skipIfExists` パラメータの使用
-
-`skipIfExists` パラメータは、特定の環境変数を選択的に保持することができます。これは特に以下の場合に有用です：
-- 手動でのみ設定すべき秘密鍵
-- 開発者が個別に設定する API トークン
-- 初期状態を保持する必要がある変数（空であっても）
-
-**⚠️ 重要**: `skipIfExists` を設定すると、**パターンに一致する変数のみが保持されます**。他のすべての変数は、既存のファイルに値がある場合でも `.env.example` から更新されます。
 
 **`skipIfExists` の設定：**
 
@@ -378,7 +350,7 @@ API_TOKEN=your-token-here
 DB_HOST=localhost
 ```
 
-`.env` (処理前):
+`.env.local` (処理前):
 ```env
 API_URL=https://api.staging.com
 SECRET_KEY=
@@ -388,7 +360,7 @@ DB_HOST=production-db.example.com
 
 **`skipIfExists: ["^SECRET_KEY$", "^API_TOKEN$"]` で copy-env を実行後：**
 
-`.env` (処理後):
+`.env.local` (処理後):
 ```env
 API_URL=https://api.example.com
 SECRET_KEY=
@@ -401,17 +373,6 @@ DB_HOST=localhost
 - ✅ `SECRET_KEY`: **空の値を保持**（`skipIfExists` パターンに一致）
 - ✅ `API_TOKEN`: **既存の値を保持**（`skipIfExists` パターンに一致）
 - ⚠️ `DB_HOST`: **.env.example から更新**（`skipIfExists` リストにない）
-
-```env
-API_URL=https://api.staging.com
-SECRET_KEY=
-API_TOKEN=my-personal-token
-```
-
-**何が起こったか：**
-- ✅ `API_URL`: `.env.example` から更新（`skipIfExists` リストにない、空だった）
-- ✅ `SECRET_KEY`: **空の値を保持**（`skipIfExists` リストにある、ターゲットファイルに存在）
-- ✅ `API_TOKEN`: **既存の値を保持**（`skipIfExists` リストにある、ターゲットファイルに存在）
 
 ### 解析ルール
 
@@ -448,9 +409,9 @@ copy-env はスマートな検出と処理ワークフローに従います：
   - 絶対パス（`/` で始まる）はワークスペースルートから解決
   - 相対パスは現在のパッケージディレクトリから解決
 - `.env.example` ファイルを読み取り、解析
-- 既存の `.env` ファイルを読み取り、解析（存在する場合）
+- 既存の `.env.local` ファイルを読み取り、解析（存在する場合）
 - 値をインテリジェントにマージ（[環境変数のマージ](#環境変数のマージ)を参照）
-- マージした結果を `.env` に書き込む
+- マージした結果を `.env.local` に書き込む
 
 ### 5. 結果
 - 処理された各ディレクトリに対して成功メッセージを表示
