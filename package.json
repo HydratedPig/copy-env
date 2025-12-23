@@ -2,7 +2,7 @@
   "name": "@hydrated_pig/copy-env",
   "type": "module",
   "version": "1.0.4",
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@10.26.1",
   "description": "Automatically copy .env.example to .env.local in monorepo projects",
   "author": "HydratedPig",
   "license": "MIT",
