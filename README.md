@@ -1,4 +1,4 @@
-# copy-env
+# @hydrated_pig/copy-env
 
 [中文](./docs/README.zh-CN.md) | [日本語](./docs/README.ja.md) | [繁體中文](./docs/README.zh-TW.md)
 
@@ -19,13 +19,13 @@ Automatically copy `.env.example` to `.env.local` in monorepo projects.
 
 ```bash
 # Using pnpm
-pnpm add -D copy-env
+pnpm add -D @hydrated_pig/copy-env
 
 # Using yarn
-yarn add -D copy-env
+yarn add -D @hydrated_pig/copy-env
 
 # Using npm
-npm install -D copy-env
+npm install -D @hydrated_pig/copy-env
 ```
 
 ## Usage

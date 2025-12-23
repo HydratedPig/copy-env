@@ -1,4 +1,4 @@
-# copy-env
+# @hydrated_pig/copy-env
 
 [English](../README.md) | [中文](./README.zh-CN.md) | [繁體中文](./README.zh-TW.md)
 
@@ -19,13 +19,13 @@ monorepo プロジェクトで `.env.example` を `.env` に自動的にコピ�
 
 ```bash
 # pnpm を使用
-pnpm add -D copy-env
+pnpm add -D @hydrated_pig/copy-env
 
 # yarn を使用
-yarn add -D copy-env
+yarn add -D @hydrated_pig/copy-env
 
 # npm を使用
-npm install -D copy-env
+npm install -D @hydrated_pig/copy-env
 ```
 
 ## 使用方法

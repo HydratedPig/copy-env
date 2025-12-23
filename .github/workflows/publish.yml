@@ -75,7 +75,7 @@ jobs:
             ## Installation
 
             ```bash
-            npm install copy-env@${{ steps.get_version.outputs.version }}
+            npm install @hydrated_pig/copy-env@${{ steps.get_version.outputs.version }}
             ```
           draft: false
           prerelease: false

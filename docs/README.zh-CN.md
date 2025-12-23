@@ -1,4 +1,4 @@
-# copy-env
+# @hydrated_pig/copy-env
 
 [English](../README.md) | [日本語](./README.ja.md) | [繁體中文](./README.zh-TW.md)
 
@@ -19,13 +19,13 @@
 
 ```bash
 # 使用 pnpm
-pnpm add -D copy-env
+pnpm add -D @hydrated_pig/copy-env
 
 # 使用 yarn
-yarn add -D copy-env
+yarn add -D @hydrated_pig/copy-env
 
 # 使用 npm
-npm install -D copy-env
+npm install -D @hydrated_pig/copy-env
 ```
 
 ## 使用
