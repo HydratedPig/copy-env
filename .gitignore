@@ -10,3 +10,7 @@ coverage
 **/pnpm-lock.yaml
 yarn.lock
 package-lock.json
+
+# mise 本地配置
+.mise.local.toml
+.mise/*.lock

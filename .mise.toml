@@ -1,0 +1,9 @@
+# mise configuration for copy-env project
+# Learn more: https://mise.jdx.dev
+
+# ============================================
+# 工具版本配置
+# ============================================
+[tools]
+node = "22.14.0"      # 匹配 engines.node >= 20.0.0
+pnpm = "10.26.1"      # 匹配 packageManager 指定的版本
